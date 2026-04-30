@@ -19,6 +19,13 @@ func (m Model) View() string {
 
 	tabBarH := lipgloss.Height(tabBar)
 	statusBarH := lipgloss.Height(statusBar)
+	// guard: if either bar wrapped (shouldn't happen after truncation), cap at 1
+	if tabBarH > 1 {
+		tabBarH = 1
+	}
+	if statusBarH > 1 {
+		statusBarH = 1
+	}
 	contentH := m.windowHeight - tabBarH - statusBarH
 	if contentH < 1 {
 		contentH = 1
@@ -64,26 +71,35 @@ func (m Model) renderTabBar() string {
 
 	var status string
 	if m.loading {
-		status = " " + m.spinner.View()
+		status = " " + m.spinner.View() + " "
 	} else if !m.lastFetched.IsZero() {
-		status = "  " + humanDuration(time.Since(m.lastFetched))
+		status = "  " + humanDuration(time.Since(m.lastFetched)) + "  "
 	}
 
-	tabsStr := strings.Join(tabs, "")
-	gap := m.windowWidth - lipgloss.Width(tabsStr) - lipgloss.Width(status)
-	if gap < 0 {
-		gap = 0
+	// build left (tabs) and right (status) sides; lipgloss fills the gap
+	left := strings.Join(tabs, "")
+	leftW := lipgloss.Width(left)
+	rightW := lipgloss.Width(status)
+	gapW := m.windowWidth - leftW - rightW
+	if gapW < 1 {
+		gapW = 1
 	}
 
-	return tabBarStyle.Width(m.windowWidth).Render(
-		tabsStr + strings.Repeat(" ", gap) + status,
-	)
+	line := left + strings.Repeat(" ", gapW) + status
+	// if the assembled line is still wider than windowWidth, trim status
+	if lipgloss.Width(line) > m.windowWidth {
+		line = left
+	}
+
+	return tabBarStyle.Width(m.windowWidth).Render(line)
 }
 
 // --- status bar ---
 
 func (m Model) renderStatusBar() string {
 	hints := "j/k: navigate   J/K: scroll detail   tab: switch tab   o: open in browser   r: refresh   q: quit"
+	// truncate to terminal width so it never wraps and adds an unexpected line
+	hints = truncate(hints, m.windowWidth-2)
 	return statusBarStyle.Width(m.windowWidth).Render(hints)
 }
 
