@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	gh "github.com/i540498/dev-dashboard/internal/github"
 )
 
@@ -25,8 +24,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.windowWidth = msg.Width
 		m.windowHeight = msg.Height
-		// cache header height for mouse coordinate mapping
-		m.headerHeight = lipgloss.Height(m.renderHeader())
 		return m, nil
 
 	case spinner.TickMsg:
@@ -42,15 +39,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.items = msg.items
 		m.hostErrs = msg.hostErrs
 		m.lastFetched = msg.fetchedAt
-		// clamp cursor in case items shrunk
 		if items := m.itemsForSection(m.activeSection); m.cursor >= len(items) {
-			if len(items) > 0 {
-				m.cursor = len(items) - 1
-			} else {
-				m.cursor = 0
-			}
+			m.cursor = max(0, len(items)-1)
 		}
-		m.adjustListScroll()
 		return m, tickAfter(m.interval)
 
 	case tickMsg:
@@ -68,36 +59,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	items := m.itemsForSection(m.activeSection)
+
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 
 	case "j", "down":
-		items := m.itemsForSection(m.activeSection)
 		if m.cursor < len(items)-1 {
 			m.cursor++
 			m.detailScrollOffset = 0
-			m.adjustListScroll()
 		}
 
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
 			m.detailScrollOffset = 0
-			m.adjustListScroll()
 		}
 
 	case "tab":
 		m.activeSection = (m.activeSection + 1) % 3
 		m.cursor = 0
 		m.detailScrollOffset = 0
-		m.listScrollOffset = 0
 
 	case "shift+tab":
 		m.activeSection = (m.activeSection + 2) % 3
 		m.cursor = 0
 		m.detailScrollOffset = 0
-		m.listScrollOffset = 0
 
 	case "J":
 		m.detailScrollOffset++
@@ -114,7 +102,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "o":
-		if item := m.selectedItem(); item != nil && item.URL != "" {
+		if item := m.selectedItem(); item != nil {
 			return m, openBrowserCmd(item.URL)
 		}
 	}
@@ -123,53 +111,40 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	listW := m.windowWidth * 30 / 100
-	if listW < 30 {
-		listW = 30
-	}
-
-	inListPanel := msg.X < listW
+	listW := m.listWidth()
 
 	switch msg.Button {
 	case tea.MouseButtonWheelUp:
-		if m.listScrollOffset > 0 {
-			m.listScrollOffset--
+		if msg.X < listW {
+			if m.cursor > 0 {
+				m.cursor--
+				m.detailScrollOffset = 0
+			}
+		} else {
+			if m.detailScrollOffset > 0 {
+				m.detailScrollOffset--
+			}
 		}
 
 	case tea.MouseButtonWheelDown:
-		rows := m.buildRows()
-		contentH := m.contentHeight()
-		maxScroll := len(rows) - contentH
-		if maxScroll > 0 && m.listScrollOffset < maxScroll {
-			m.listScrollOffset++
+		if msg.X < listW {
+			items := m.itemsForSection(m.activeSection)
+			if m.cursor < len(items)-1 {
+				m.cursor++
+				m.detailScrollOffset = 0
+			}
+		} else {
+			m.detailScrollOffset++
 		}
 
 	case tea.MouseButtonLeft:
 		if msg.Action != tea.MouseActionRelease {
 			break
 		}
-		if inListPanel {
-			// map click Y to a row in the (scrolled) row list
-			rowIdx := msg.Y - m.headerHeight + m.listScrollOffset
-			rows := m.buildRows()
-			if rowIdx >= 0 && rowIdx < len(rows) {
-				row := rows[rowIdx]
-				switch row.kind {
-				case rowSection:
-					m.activeSection = row.section
-					m.cursor = 0
-					m.detailScrollOffset = 0
-					m.listScrollOffset = 0
-				case rowItem:
-					m.activeSection = row.section
-					m.cursor = row.itemIdx
-					m.detailScrollOffset = 0
-					m.adjustListScroll()
-				}
-			}
+		if msg.X < listW {
+			m.handleListClick(msg.Y)
 		} else {
-			// click in detail panel → open in browser
-			if item := m.selectedItem(); item != nil && item.URL != "" {
+			if item := m.selectedItem(); item != nil {
 				return m, openBrowserCmd(item.URL)
 			}
 		}
@@ -178,13 +153,27 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) contentHeight() int {
-	// approximation: 1 line header + 1 line footer
-	h := m.windowHeight - 2
-	if h < 1 {
-		h = 1
+func (m *Model) handleListClick(y int) {
+	// tab bar is row 0, list starts at row 1
+	listIdx := y - 1
+	if listIdx < 0 {
+		return
 	}
-	return h
+	items := m.itemsForSection(m.activeSection)
+	// each item occupies 2 rows (title + subtitle)
+	clicked := listIdx / 2
+	if clicked < len(items) {
+		m.cursor = clicked
+		m.detailScrollOffset = 0
+	}
+}
+
+func (m Model) listWidth() int {
+	w := m.windowWidth * 30 / 100
+	if w < 32 {
+		w = 32
+	}
+	return w
 }
 
 func fetchCmd(clients []gh.HostClient) tea.Cmd {
@@ -220,4 +209,11 @@ func openBrowserCmd(url string) tea.Cmd {
 		_ = exec.Command("open", url).Start()
 		return nil
 	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

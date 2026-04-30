@@ -14,22 +14,18 @@ func (m Model) View() string {
 		return ""
 	}
 
-	header := m.renderHeader()
-	footer := m.renderFooter()
+	tabBar := m.renderTabBar()
+	statusBar := m.renderStatusBar()
 
-	headerH := lipgloss.Height(header)
-	footerH := lipgloss.Height(footer)
-	contentH := m.windowHeight - headerH - footerH
+	tabBarH := lipgloss.Height(tabBar)
+	statusBarH := lipgloss.Height(statusBar)
+	contentH := m.windowHeight - tabBarH - statusBarH
 	if contentH < 1 {
 		contentH = 1
 	}
 
-	listW := m.windowWidth * 30 / 100
-	if listW < 30 {
-		listW = 30
-	}
-	// -2 for the border character rendered by listPanelStyle
-	detailW := m.windowWidth - listW - 2
+	listW := m.listWidth()
+	detailW := m.windowWidth - listW - 2 // -2 for border
 	if detailW < 10 {
 		detailW = 10
 	}
@@ -43,145 +39,124 @@ func (m Model) View() string {
 		detailPanelStyle.Width(detailW).Height(contentH).Render(detail),
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, tabBar, body, statusBar)
 }
 
-func (m Model) renderHeader() string {
-	title := headerStyle.Render("dev-dashboard")
+// --- tab bar ---
 
-	counts := badgeStyle.Render(fmt.Sprintf(
-		" My PRs: %d  Review: %d  Issues: %d ",
-		len(m.itemsForSection(gh.SectionMyPRs)),
-		len(m.itemsForSection(gh.SectionReviewNeeded)),
-		len(m.itemsForSection(gh.SectionMyIssues)),
-	))
+func (m Model) renderTabBar() string {
+	sections := []gh.Section{gh.SectionMyPRs, gh.SectionReviewNeeded, gh.SectionMyIssues}
+	labels := []string{"My PRs", "Review Needed", "Issues"}
+
+	var tabs []string
+	for i, sec := range sections {
+		count := len(m.itemsForSection(sec))
+		label := fmt.Sprintf("%s (%d)", labels[i], count)
+		if m.loading && count == 0 {
+			label = fmt.Sprintf("%s (?)", labels[i])
+		}
+		if sec == m.activeSection {
+			tabs = append(tabs, activeTabStyle.Render(label))
+		} else {
+			tabs = append(tabs, inactiveTabStyle.Render(label))
+		}
+	}
 
 	var status string
 	if m.loading {
-		status = m.spinner.View() + " loading…"
+		status = " " + m.spinner.View()
 	} else if !m.lastFetched.IsZero() {
-		status = "Last: " + humanDuration(time.Since(m.lastFetched)) + "  r↺"
+		status = "  " + humanDuration(time.Since(m.lastFetched))
 	}
 
-	used := lipgloss.Width(title) + lipgloss.Width(counts) + lipgloss.Width(status)
-	gap := m.windowWidth - used
-	if gap < 1 {
-		gap = 1
+	tabsStr := strings.Join(tabs, "")
+	gap := m.windowWidth - lipgloss.Width(tabsStr) - lipgloss.Width(status)
+	if gap < 0 {
+		gap = 0
 	}
 
-	return title + counts + strings.Repeat(" ", gap) + status
+	return tabBarStyle.Width(m.windowWidth).Render(
+		tabsStr + strings.Repeat(" ", gap) + status,
+	)
 }
 
-func (m Model) renderFooter() string {
-	hints := "  j/k: navigate   J/K: scroll detail   tab: section   o: browser   r: refresh   q: quit"
-	return footerStyle.Width(m.windowWidth).Render(hints)
+// --- status bar ---
+
+func (m Model) renderStatusBar() string {
+	hints := "j/k: navigate   J/K: scroll detail   tab: switch tab   o: open in browser   r: refresh   q: quit"
+	return statusBarStyle.Width(m.windowWidth).Render(hints)
 }
 
-// --- list ---
+// --- list panel ---
 
-type rowKind int
-
-const (
-	rowSection rowKind = iota
-	rowHost
-	rowItem
-)
-
-type listRow struct {
-	kind    rowKind
-	label   string
-	item    *gh.Item
-	section gh.Section
-	itemIdx int // index within that section's item slice
-}
-
-func (m Model) buildRows() []listRow {
-	sections := []gh.Section{gh.SectionMyPRs, gh.SectionReviewNeeded, gh.SectionMyIssues}
-
-	var rows []listRow
-	for _, sec := range sections {
-		rows = append(rows, listRow{kind: rowSection, label: sec.Label(), section: sec})
-
-		hostOrder, byHost := groupByHost(m.itemsForSection(sec))
-		flatIdx := 0 // flat index across all hosts within this section
-		for _, host := range hostOrder {
-			rows = append(rows, listRow{kind: rowHost, label: "[" + host + "]", section: sec})
-			for i := range byHost[host] {
-				rows = append(rows, listRow{
-					kind:    rowItem,
-					label:   byHost[host][i].Title,
-					item:    &byHost[host][i],
-					section: sec,
-					itemIdx: flatIdx,
-				})
-				flatIdx++
-			}
-		}
-	}
-	return rows
-}
-
-func groupByHost(items []gh.Item) ([]string, map[string][]gh.Item) {
-	order := []string{}
-	seen := map[string]bool{}
-	byHost := map[string][]gh.Item{}
-
-	for _, item := range items {
-		if !seen[item.Host] {
-			seen[item.Host] = true
-			order = append(order, item.Host)
-		}
-		byHost[item.Host] = append(byHost[item.Host], item)
-	}
-	return order, byHost
-}
+// Each item renders as two lines:
+//   line 1: "> Title"  (or "  Title")
+//   line 2: "  host · repo"
 
 func (m Model) renderList(width, height int) string {
-	rows := m.buildRows()
-	maxTitleW := width - 4
+	items := m.itemsForSection(m.activeSection)
 
-	offset := m.listScrollOffset
-	// clamp to valid range (defensive)
-	if offset < 0 {
-		offset = 0
-	}
-	if offset >= len(rows) {
-		offset = len(rows) - 1
-	}
-	if offset < 0 {
-		offset = 0
+	if len(items) == 0 {
+		if m.loading {
+			return ""
+		}
+		return normalItemStyle.Render("  No items")
 	}
 
-	visible := rows[offset:]
-	if len(visible) > height {
-		visible = visible[:height]
+	// each item = 2 lines; figure out which window of items fits
+	visibleCount := height / 2
+	if visibleCount < 1 {
+		visibleCount = 1
 	}
 
-	var lines []string
-	for _, row := range visible {
-		switch row.kind {
-		case rowSection:
-			lines = append(lines, sectionHeaderStyle.Width(width).Render(row.label))
-
-		case rowHost:
-			lines = append(lines, "  "+hostLabelStyle.Render(row.label))
-
-		case rowItem:
-			isSelected := row.section == m.activeSection && row.itemIdx == m.cursor
-			prefix := "  "
-			if isSelected {
-				prefix = "> "
-			}
-			title := truncate(row.label, maxTitleW)
-			line := prefix + title
-			if isSelected {
-				lines = append(lines, selectedItemStyle.Width(width).Render(line))
-			} else {
-				lines = append(lines, normalItemStyle.Render(line))
-			}
+	// keep cursor in the visible window
+	start := m.cursor - visibleCount + 1
+	if start < 0 {
+		start = 0
+	}
+	if m.cursor < start {
+		start = m.cursor
+	}
+	end := start + visibleCount
+	if end > len(items) {
+		end = len(items)
+		start = end - visibleCount
+		if start < 0 {
+			start = 0
 		}
 	}
 
+	maxTitleW := width - 3 // prefix "  " or "> " + 1 spare
+
+	var lines []string
+	for i := start; i < end; i++ {
+		item := items[i]
+		selected := i == m.cursor
+
+		prefix := "  "
+		if selected {
+			prefix = "> "
+		}
+
+		title := truncate(item.Title, maxTitleW)
+		titleLine := prefix + title
+
+		subtitle := "  " + truncate(item.Host+" · "+item.Repo, width-3)
+
+		if selected {
+			lines = append(lines,
+				selectedItemStyle.Width(width).Render(titleLine),
+				itemSubtitleStyle.Width(width).Render(subtitle),
+			)
+		} else {
+			lines = append(lines,
+				normalItemStyle.Render(titleLine),
+				itemSubtitleStyle.Render(subtitle),
+			)
+		}
+	}
+
+	// pad
 	for len(lines) < height {
 		lines = append(lines, "")
 	}
