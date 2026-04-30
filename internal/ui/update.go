@@ -50,6 +50,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 			}
 		}
+		m.adjustListScroll()
 		return m, tickAfter(m.interval)
 
 	case tickMsg:
@@ -76,23 +77,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor < len(items)-1 {
 			m.cursor++
 			m.detailScrollOffset = 0
+			m.adjustListScroll()
 		}
 
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
 			m.detailScrollOffset = 0
+			m.adjustListScroll()
 		}
 
 	case "tab":
 		m.activeSection = (m.activeSection + 1) % 3
 		m.cursor = 0
 		m.detailScrollOffset = 0
+		m.listScrollOffset = 0
 
 	case "shift+tab":
 		m.activeSection = (m.activeSection + 2) % 3
 		m.cursor = 0
 		m.detailScrollOffset = 0
+		m.listScrollOffset = 0
 
 	case "J":
 		m.detailScrollOffset++
@@ -154,10 +159,12 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 					m.activeSection = row.section
 					m.cursor = 0
 					m.detailScrollOffset = 0
+					m.listScrollOffset = 0
 				case rowItem:
 					m.activeSection = row.section
 					m.cursor = row.itemIdx
 					m.detailScrollOffset = 0
+					m.adjustListScroll()
 				}
 			}
 		} else {

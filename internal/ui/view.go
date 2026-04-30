@@ -138,58 +138,21 @@ func groupByHost(items []gh.Item) ([]string, map[string][]gh.Item) {
 
 func (m Model) renderList(width, height int) string {
 	rows := m.buildRows()
-	maxTitleW := width - 4 // 2 indent + cursor + space
-
-	// find the row index of the selected item
-	selectedRowIdx := -1
-	for i, row := range rows {
-		if row.kind == rowItem && row.section == m.activeSection && row.itemIdx == m.cursor {
-			selectedRowIdx = i
-			break
-		}
-	}
+	maxTitleW := width - 4
 
 	offset := m.listScrollOffset
-
-	if selectedRowIdx >= 0 {
-		// scroll down: selected item scrolled below the visible window
-		if selectedRowIdx >= offset+height {
-			offset = selectedRowIdx - height + 1
-		}
-
-		// scroll up: selected item scrolled above the visible window —
-		// or its nearest header is above the visible window.
-		// Walk back from the selected item to find the nearest section or host
-		// header so we never show an orphaned item without its header.
-		anchor := selectedRowIdx
-		for i := selectedRowIdx - 1; i >= 0; i-- {
-			if rows[i].kind == rowSection || rows[i].kind == rowHost {
-				anchor = i
-				break
-			}
-		}
-		if anchor < offset {
-			offset = anchor
-		}
+	// clamp to valid range (defensive)
+	if offset < 0 {
+		offset = 0
 	}
-
-	// clamp offset to valid range
-	maxOffset := len(rows) - height
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if offset > maxOffset {
-		offset = maxOffset
+	if offset >= len(rows) {
+		offset = len(rows) - 1
 	}
 	if offset < 0 {
 		offset = 0
 	}
 
-	// apply scroll window
-	visible := rows
-	if offset < len(rows) {
-		visible = rows[offset:]
-	}
+	visible := rows[offset:]
 	if len(visible) > height {
 		visible = visible[:height]
 	}
@@ -219,7 +182,6 @@ func (m Model) renderList(width, height int) string {
 		}
 	}
 
-	// pad to fill height so the border is uniform
 	for len(lines) < height {
 		lines = append(lines, "")
 	}

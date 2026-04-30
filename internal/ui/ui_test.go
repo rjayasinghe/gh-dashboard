@@ -213,42 +213,29 @@ func TestWrapText_EmptyParagraph(t *testing.T) {
 	}
 }
 
-// --- renderList scroll / header visibility ---
+// --- adjustListScroll ---
 
-// buildRowsForModel is a test helper that calls buildRows on a model with
-// the given items all in SectionMyPRs.
-func modelWithPRs(hosts map[string][]string) Model {
-	var items []gh.Item
-	for host, titles := range hosts {
-		for _, t := range titles {
-			items = append(items, makeItem(t, host, gh.SectionMyPRs))
-		}
-	}
-	return Model{activeSection: gh.SectionMyPRs, items: items}
-}
-
-func TestRenderList_HeaderNotOrphanedOnScrollUp(t *testing.T) {
-	// Layout with two hosts, 3 items each:
-	//   row 0: ▼ My PRs          (section header)
-	//   row 1: [github.com]      (host header)
-	//   row 2: A1
-	//   row 3: A2
-	//   row 4: A3
-	//   row 5: [ghe.com]         (host header)
-	//   row 6: B1
-	//   row 7: B2
-	//   row 8: B3
+func TestAdjustListScroll_HeaderStaysVisibleOnScrollUp(t *testing.T) {
+	// Layout (9 rows total):
+	//   0: ▼ My PRs
+	//   1: [github.com]
+	//   2: A1
+	//   3: A2
+	//   4: A3
+	//   5: [ghe.com]
+	//   6: B1
+	//   7: B2
+	//   8: B3
 	//
-	// With height=4 and the cursor on B1 (itemIdx=3, selectedRowIdx=6),
-	// scrolling down puts offset=3 (rows 3-6 visible). Then moving cursor
-	// back to A3 (itemIdx=2, selectedRowIdx=4) should snap offset back so
-	// the host header [github.com] at row 1 is visible — not leave offset=3
-	// which would show rows 3-6 with no header.
+	// With height=4, cursor scrolled down to B1 (itemIdx=3, row=6) gives offset=3.
+	// Moving cursor back to A3 (itemIdx=2, row=4): item is still in window
+	// but [github.com] at row 1 is not. adjustListScroll must pull offset to 1.
 
-	m := Model{
-		activeSection: gh.SectionMyPRs,
-		cursor:        3, // B1 — was scrolled into view
-		listScrollOffset: 3,
+	m := &Model{
+		activeSection:    gh.SectionMyPRs,
+		cursor:           2, // A3
+		listScrollOffset: 3, // was scrolled down to see B1
+		windowHeight:     6, // height=4 after header+footer
 		items: []gh.Item{
 			makeItem("A1", "github.com", gh.SectionMyPRs),
 			makeItem("A2", "github.com", gh.SectionMyPRs),
@@ -259,37 +246,64 @@ func TestRenderList_HeaderNotOrphanedOnScrollUp(t *testing.T) {
 		},
 	}
 
-	// move cursor back to A3
-	m.cursor = 2 // itemIdx for A3
+	m.adjustListScroll()
 
-	height := 4
-	result := m.renderList(40, height)
-	lines := splitLines(result)
-
-	// The visible window must contain the [github.com] host header.
-	// Since ANSI styles are applied, check for the raw label text.
-	found := false
-	for _, l := range lines {
-		if containsSubstr(l, "github.com") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("host header [github.com] should be visible when cursor is on A3, but it was scrolled off:\n%s",
-			result)
+	// [github.com] is at row 1; offset must be ≤ 1
+	if m.listScrollOffset > 1 {
+		t.Errorf("expected listScrollOffset ≤ 1 so [github.com] header is visible, got %d", m.listScrollOffset)
 	}
 }
 
-func containsSubstr(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && func() bool {
-		for i := 0; i <= len(s)-len(sub); i++ {
-			if s[i:i+len(sub)] == sub {
-				return true
-			}
+func TestAdjustListScroll_ScrollsDownToShowItem(t *testing.T) {
+	m := &Model{
+		activeSection:    gh.SectionMyPRs,
+		cursor:           4, // B2 (row 7)
+		listScrollOffset: 0,
+		windowHeight:     6, // height=4
+		items: []gh.Item{
+			makeItem("A1", "github.com", gh.SectionMyPRs),
+			makeItem("A2", "github.com", gh.SectionMyPRs),
+			makeItem("A3", "github.com", gh.SectionMyPRs),
+			makeItem("B1", "ghe.com", gh.SectionMyPRs),
+			makeItem("B2", "ghe.com", gh.SectionMyPRs),
+		},
+	}
+
+	m.adjustListScroll()
+
+	// B2 is at row 7, must be within [offset, offset+4)
+	rows := m.buildRows()
+	selectedRow := -1
+	for i, r := range rows {
+		if r.kind == rowItem && r.section == gh.SectionMyPRs && r.itemIdx == m.cursor {
+			selectedRow = i
+			break
 		}
-		return false
-	}())
+	}
+	height := 4
+	if selectedRow < m.listScrollOffset || selectedRow >= m.listScrollOffset+height {
+		t.Errorf("selected item at row %d not visible in window [%d, %d)",
+			selectedRow, m.listScrollOffset, m.listScrollOffset+height)
+	}
+}
+
+func TestAdjustListScroll_NoScrollNeeded(t *testing.T) {
+	m := &Model{
+		activeSection:    gh.SectionMyPRs,
+		cursor:           0,
+		listScrollOffset: 0,
+		windowHeight:     20,
+		items: []gh.Item{
+			makeItem("A1", "github.com", gh.SectionMyPRs),
+			makeItem("A2", "github.com", gh.SectionMyPRs),
+		},
+	}
+
+	m.adjustListScroll()
+
+	if m.listScrollOffset != 0 {
+		t.Errorf("expected offset 0, got %d", m.listScrollOffset)
+	}
 }
 
 
