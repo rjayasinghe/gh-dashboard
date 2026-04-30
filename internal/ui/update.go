@@ -75,20 +75,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		items := m.itemsForSection(m.activeSection)
 		if m.cursor < len(items)-1 {
 			m.cursor++
+			m.detailScrollOffset = 0
 		}
 
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
+			m.detailScrollOffset = 0
 		}
 
 	case "tab":
 		m.activeSection = (m.activeSection + 1) % 3
 		m.cursor = 0
+		m.detailScrollOffset = 0
 
 	case "shift+tab":
 		m.activeSection = (m.activeSection + 2) % 3
 		m.cursor = 0
+		m.detailScrollOffset = 0
+
+	case "J":
+		m.detailScrollOffset++
+
+	case "K":
+		if m.detailScrollOffset > 0 {
+			m.detailScrollOffset--
+		}
 
 	case "r":
 		if !m.loading {
@@ -141,9 +153,11 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				case rowSection:
 					m.activeSection = row.section
 					m.cursor = 0
+					m.detailScrollOffset = 0
 				case rowItem:
 					m.activeSection = row.section
 					m.cursor = row.itemIdx
+					m.detailScrollOffset = 0
 				}
 			}
 		} else {

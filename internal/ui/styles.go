@@ -65,4 +65,18 @@ var (
 			Foreground(lipgloss.Color("240")).
 			Background(lipgloss.Color("235")).
 			Padding(0, 1)
+
+	// comments
+	commentSepStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
+
+	commentAuthorStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("99")).
+				Bold(true)
+
+	commentAgeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
+
+	commentBodyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
 )

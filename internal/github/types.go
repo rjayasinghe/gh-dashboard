@@ -22,14 +22,20 @@ func (s Section) Label() string {
 	return ""
 }
 
+type Comment struct {
+	Author    string
+	Body      string
+	CreatedAt time.Time
+}
+
 type Item struct {
-	ID     int
-	Number int
-	Title  string
-	URL    string
-	Host   string
-	Repo   string // "owner/name"
-	State  string
+	ID      int
+	Number  int
+	Title   string
+	URL     string
+	Host    string
+	Repo    string // "owner/name"
+	State   string
 	IsDraft bool
 
 	CreatedAt time.Time
@@ -37,6 +43,7 @@ type Item struct {
 	Author    string
 	Labels    []string
 	Section   Section
+	Comments  []Comment // newest first
 
 	// PR-specific
 	ReviewStatus string // "approved" | "changes_requested" | "pending" | ""

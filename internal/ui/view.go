@@ -35,7 +35,7 @@ func (m Model) View() string {
 	}
 
 	list := m.renderList(listW, contentH)
-	detail := renderDetail(m.selectedItem(), m.hostErrs, detailW, contentH)
+	detail := renderDetail(m.selectedItem(), m.hostErrs, m.detailScrollOffset, detailW, contentH)
 
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -73,7 +73,7 @@ func (m Model) renderHeader() string {
 }
 
 func (m Model) renderFooter() string {
-	hints := "  j/k/scroll: navigate   click: select   tab: section   o/click-detail: browser   r: refresh   q: quit"
+	hints := "  j/k: navigate   J/K: scroll detail   tab: section   o: browser   r: refresh   q: quit"
 	return footerStyle.Width(m.windowWidth).Render(hints)
 }
 

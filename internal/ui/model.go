@@ -29,8 +29,9 @@ type Model struct {
 	cursor        int
 
 	// list scroll state
-	listScrollOffset int // rows scrolled off the top of the list panel
-	headerHeight     int // cached so mouse handler can compute row from Y
+	listScrollOffset  int // rows scrolled off the top of the list panel
+	detailScrollOffset int // lines scrolled in the detail pane
+	headerHeight      int // cached so mouse handler can compute row from Y
 
 	// ui state
 	loading      bool

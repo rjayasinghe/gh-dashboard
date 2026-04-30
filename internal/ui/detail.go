@@ -9,11 +9,40 @@ import (
 	gh "github.com/i540498/dev-dashboard/internal/github"
 )
 
-func renderDetail(item *gh.Item, hostErrs map[string]error, width, height int) string {
+func renderDetail(item *gh.Item, hostErrs map[string]error, scrollOffset, width, height int) string {
 	if item == nil {
 		return detailKeyStyle.Render("No item selected")
 	}
 
+	// build the full content as a slice of lines, then apply scroll + clip
+	lines := buildDetailLines(item, hostErrs, width)
+
+	// clamp scroll offset
+	maxOffset := len(lines) - height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if scrollOffset > maxOffset {
+		scrollOffset = maxOffset
+	}
+	if scrollOffset < 0 {
+		scrollOffset = 0
+	}
+
+	visible := lines[scrollOffset:]
+	if len(visible) > height {
+		visible = visible[:height]
+	}
+
+	// pad to fill height
+	for len(visible) < height {
+		visible = append(visible, "")
+	}
+
+	return strings.Join(visible, "\n")
+}
+
+func buildDetailLines(item *gh.Item, hostErrs map[string]error, width int) []string {
 	age := humanDuration(time.Since(item.CreatedAt))
 
 	lines := []string{
@@ -54,12 +83,27 @@ func renderDetail(item *gh.Item, hostErrs map[string]error, width, height int) s
 		lines = append(lines, "", errorStyle.Render(fmt.Sprintf("Error (%s): %s", host, err.Error())))
 	}
 
-	// pad
-	for len(lines) < height {
-		lines = append(lines, "")
+	// comments section
+	if len(item.Comments) > 0 {
+		sep := commentSepStyle.Render(strings.Repeat("─", width))
+		lines = append(lines, "", sep,
+			commentSepStyle.Render(fmt.Sprintf(" %d comment(s) — newest first", len(item.Comments))),
+			sep,
+		)
+
+		for _, c := range item.Comments {
+			header := commentAuthorStyle.Render(c.Author) + "  " +
+				commentAgeStyle.Render(humanDuration(time.Since(c.CreatedAt))+" ago")
+			lines = append(lines, "", header)
+
+			// word-wrap body to panel width
+			for _, bodyLine := range wrapText(c.Body, width) {
+				lines = append(lines, commentBodyStyle.Render(bodyLine))
+			}
+		}
 	}
 
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func kv(key, value string, width int) string {
@@ -70,4 +114,34 @@ func kv(key, value string, width int) string {
 	}
 	v := detailValueStyle.Width(availW).Render(value)
 	return k + v
+}
+
+// wrapText breaks s into lines of at most maxWidth runes.
+func wrapText(s string, maxWidth int) []string {
+	if maxWidth < 1 {
+		maxWidth = 1
+	}
+	var lines []string
+	for _, paragraph := range strings.Split(s, "\n") {
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			lines = append(lines, "")
+			continue
+		}
+		current := ""
+		for _, word := range words {
+			if current == "" {
+				current = word
+			} else if len([]rune(current))+1+len([]rune(word)) <= maxWidth {
+				current += " " + word
+			} else {
+				lines = append(lines, current)
+				current = word
+			}
+		}
+		if current != "" {
+			lines = append(lines, current)
+		}
+	}
+	return lines
 }

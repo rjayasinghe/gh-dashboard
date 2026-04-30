@@ -25,6 +25,7 @@ query($query: String!, $first: Int!, $after: String) {
         labels(first: 10) { nodes { name } }
         repository { nameWithOwner }
         reviews(last: 10) { nodes { state } }
+        comments(last: 50) { nodes { author { login } body createdAt } }
       }
       ... on Issue {
         number
@@ -36,6 +37,7 @@ query($query: String!, $first: Int!, $after: String) {
         author { login }
         labels(first: 10) { nodes { name } }
         repository { nameWithOwner }
+        comments(last: 50) { nodes { author { login } body createdAt } }
       }
     }
     pageInfo { hasNextPage endCursor }
@@ -67,6 +69,7 @@ type gqlPR struct {
 	Labels    struct{ Nodes []struct{ Name string } }
 	Repository struct{ NameWithOwner string }
 	Reviews   struct{ Nodes []struct{ State string } }
+	Comments  struct{ Nodes []gqlComment }
 }
 
 type gqlIssue struct {
@@ -80,6 +83,13 @@ type gqlIssue struct {
 	Author    struct{ Login string }
 	Labels    struct{ Nodes []struct{ Name string } }
 	Repository struct{ NameWithOwner string }
+	Comments  struct{ Nodes []gqlComment }
+}
+
+type gqlComment struct {
+	Author    struct{ Login string }
+	Body      string
+	CreatedAt time.Time
 }
 
 type gqlTypename struct {
@@ -108,6 +118,20 @@ func labelsFrom(nodes []struct{ Name string }) []string {
 		labels = append(labels, n.Name)
 	}
 	return labels
+}
+
+// commentsNewestFirst converts GQL comment nodes (oldest-first from the API)
+// into a []Comment slice reversed so index 0 is the newest comment.
+func commentsNewestFirst(nodes []gqlComment) []Comment {
+	out := make([]Comment, len(nodes))
+	for i, n := range nodes {
+		out[len(nodes)-1-i] = Comment{
+			Author:    n.Author.Login,
+			Body:      n.Body,
+			CreatedAt: n.CreatedAt,
+		}
+	}
+	return out
 }
 
 // --- per-section fetch with pagination ---
@@ -153,6 +177,7 @@ func fetchSection(ctx context.Context, client HostClient, gqlSearchStr string, s
 						Labels:       labelsFrom(pr.Labels.Nodes),
 						Section:      section,
 						ReviewStatus: deriveReviewStatus(pr.Reviews.Nodes),
+						Comments:     commentsNewestFirst(pr.Comments.Nodes),
 					})
 				}
 			case "Issue":
@@ -170,6 +195,7 @@ func fetchSection(ctx context.Context, client HostClient, gqlSearchStr string, s
 						Author:    issue.Author.Login,
 						Labels:    labelsFrom(issue.Labels.Nodes),
 						Section:   section,
+						Comments:  commentsNewestFirst(issue.Comments.Nodes),
 					})
 				}
 			}
