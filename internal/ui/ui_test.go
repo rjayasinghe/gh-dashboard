@@ -213,7 +213,86 @@ func TestWrapText_EmptyParagraph(t *testing.T) {
 	}
 }
 
-// --- renderDetail scroll clamping ---
+// --- renderList scroll / header visibility ---
+
+// buildRowsForModel is a test helper that calls buildRows on a model with
+// the given items all in SectionMyPRs.
+func modelWithPRs(hosts map[string][]string) Model {
+	var items []gh.Item
+	for host, titles := range hosts {
+		for _, t := range titles {
+			items = append(items, makeItem(t, host, gh.SectionMyPRs))
+		}
+	}
+	return Model{activeSection: gh.SectionMyPRs, items: items}
+}
+
+func TestRenderList_HeaderNotOrphanedOnScrollUp(t *testing.T) {
+	// Layout with two hosts, 3 items each:
+	//   row 0: ▼ My PRs          (section header)
+	//   row 1: [github.com]      (host header)
+	//   row 2: A1
+	//   row 3: A2
+	//   row 4: A3
+	//   row 5: [ghe.com]         (host header)
+	//   row 6: B1
+	//   row 7: B2
+	//   row 8: B3
+	//
+	// With height=4 and the cursor on B1 (itemIdx=3, selectedRowIdx=6),
+	// scrolling down puts offset=3 (rows 3-6 visible). Then moving cursor
+	// back to A3 (itemIdx=2, selectedRowIdx=4) should snap offset back so
+	// the host header [github.com] at row 1 is visible — not leave offset=3
+	// which would show rows 3-6 with no header.
+
+	m := Model{
+		activeSection: gh.SectionMyPRs,
+		cursor:        3, // B1 — was scrolled into view
+		listScrollOffset: 3,
+		items: []gh.Item{
+			makeItem("A1", "github.com", gh.SectionMyPRs),
+			makeItem("A2", "github.com", gh.SectionMyPRs),
+			makeItem("A3", "github.com", gh.SectionMyPRs),
+			makeItem("B1", "ghe.com", gh.SectionMyPRs),
+			makeItem("B2", "ghe.com", gh.SectionMyPRs),
+			makeItem("B3", "ghe.com", gh.SectionMyPRs),
+		},
+	}
+
+	// move cursor back to A3
+	m.cursor = 2 // itemIdx for A3
+
+	height := 4
+	result := m.renderList(40, height)
+	lines := splitLines(result)
+
+	// The visible window must contain the [github.com] host header.
+	// Since ANSI styles are applied, check for the raw label text.
+	found := false
+	for _, l := range lines {
+		if containsSubstr(l, "github.com") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("host header [github.com] should be visible when cursor is on A3, but it was scrolled off:\n%s",
+			result)
+	}
+}
+
+func containsSubstr(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && func() bool {
+		for i := 0; i <= len(s)-len(sub); i++ {
+			if s[i:i+len(sub)] == sub {
+				return true
+			}
+		}
+		return false
+	}())
+}
+
+
 
 func TestRenderDetail_ScrollClamp(t *testing.T) {
 	item := &gh.Item{

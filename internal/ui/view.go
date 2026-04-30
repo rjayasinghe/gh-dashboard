@@ -140,7 +140,7 @@ func (m Model) renderList(width, height int) string {
 	rows := m.buildRows()
 	maxTitleW := width - 4 // 2 indent + cursor + space
 
-	// find the screen row of the selected item so we can auto-scroll to it
+	// find the row index of the selected item
 	selectedRowIdx := -1
 	for i, row := range rows {
 		if row.kind == rowItem && row.section == m.activeSection && row.itemIdx == m.cursor {
@@ -149,15 +149,30 @@ func (m Model) renderList(width, height int) string {
 		}
 	}
 
-	// clamp scroll so the selected item stays visible
 	offset := m.listScrollOffset
+
 	if selectedRowIdx >= 0 {
-		if selectedRowIdx < offset {
-			offset = selectedRowIdx
-		} else if selectedRowIdx >= offset+height {
+		// scroll down: selected item scrolled below the visible window
+		if selectedRowIdx >= offset+height {
 			offset = selectedRowIdx - height + 1
 		}
+
+		// scroll up: selected item scrolled above the visible window —
+		// or its nearest header is above the visible window.
+		// Walk back from the selected item to find the nearest section or host
+		// header so we never show an orphaned item without its header.
+		anchor := selectedRowIdx
+		for i := selectedRowIdx - 1; i >= 0; i-- {
+			if rows[i].kind == rowSection || rows[i].kind == rowHost {
+				anchor = i
+				break
+			}
+		}
+		if anchor < offset {
+			offset = anchor
+		}
 	}
+
 	// clamp offset to valid range
 	maxOffset := len(rows) - height
 	if maxOffset < 0 {
