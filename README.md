@@ -89,7 +89,6 @@ dev-dashboard --config /path/to/config.toml
 |---|---|---|
 | `--interval` | `5m` | Auto-refresh interval (e.g. `30s`, `2m`, `1h`) |
 | `--config` | `~/.config/dev-dashboard/config.toml` | Path to config file |
-| `--debug` | `false` | Write Bubble Tea debug log to `debug.log` |
 
 ### Keyboard shortcuts
 

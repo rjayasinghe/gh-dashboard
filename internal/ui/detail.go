@@ -5,48 +5,54 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	gh "github.com/i540498/dev-dashboard/internal/github"
 )
 
-func renderDetail(item *gh.Item, hostErrs map[string]error, scrollOffset, width, height int) string {
+// DetailViewportContent builds full detail text (one terminal row per element) for a viewport.
+func DetailViewportContent(item *gh.Item, hostErrs map[string]error, width int) string {
 	if item == nil {
 		return detailKeyStyle.Render("No item selected")
 	}
-
-	// build the full content as a slice of lines, then apply scroll + clip
 	lines := buildDetailLines(item, hostErrs, width)
+	physical := flattenPhysicalLines(lines)
+	return strings.Join(physical, "\n")
+}
 
-	// clamp scroll offset
-	maxOffset := len(lines) - height
-	if maxOffset < 0 {
-		maxOffset = 0
+// renderDetail renders a clipped detail view at scrollOffset (used in tests; mirrors viewport behavior).
+func renderDetail(item *gh.Item, hostErrs map[string]error, scrollOffset, width, height int) string {
+	if height < 1 {
+		height = 1
 	}
-	if scrollOffset > maxOffset {
-		scrollOffset = maxOffset
+	vp := viewport.New(width, height)
+	vp.MouseWheelEnabled = false
+	if item == nil {
+		vp.SetContent(detailKeyStyle.Render("No item selected"))
+	} else {
+		vp.SetContent(DetailViewportContent(item, hostErrs, width))
 	}
-	if scrollOffset < 0 {
-		scrollOffset = 0
-	}
+	vp.SetYOffset(scrollOffset)
+	return vp.View()
+}
 
-	visible := lines[scrollOffset:]
-	if len(visible) > height {
-		visible = visible[:height]
+// flattenPhysicalLines splits each styled row on '\n' so one element ≈ one terminal row.
+func flattenPhysicalLines(rows []string) []string {
+	var out []string
+	for _, row := range rows {
+		out = append(out, strings.Split(row, "\n")...)
 	}
-
-	// pad to fill height
-	for len(visible) < height {
-		visible = append(visible, "")
-	}
-
-	return strings.Join(visible, "\n")
+	return out
 }
 
 func buildDetailLines(item *gh.Item, hostErrs map[string]error, width int) []string {
 	age := humanDuration(time.Since(item.CreatedAt))
 
+	// Single-line title: wrapping here multiplied physical rows and broke TUI height.
+	title := ansi.Truncate(item.Title, width, "…")
 	lines := []string{
-		detailTitleStyle.Width(width).Render(item.Title),
+		detailTitleStyle.Width(width).Render(title),
 		"",
 		kv("repo", item.Repo, width),
 		kv("status", strings.ToLower(item.State), width),
@@ -74,13 +80,14 @@ func buildDetailLines(item *gh.Item, hostErrs map[string]error, width int) []str
 
 	lines = append(lines,
 		"",
-		urlStyle.Render(item.URL),
+		urlStyle.Width(width).Render(ansi.Truncate(item.URL, width, "…")),
 		"",
 		detailKeyStyle.Render("[o] open in browser"),
 	)
 
 	for host, err := range hostErrs {
-		lines = append(lines, "", errorStyle.Render(fmt.Sprintf("Error (%s): %s", host, err.Error())))
+		msg := fmt.Sprintf("Error (%s): %s", host, err.Error())
+		lines = append(lines, "", errorStyle.Width(width).Render(ansi.Truncate(msg, width, "…")))
 	}
 
 	// comments section
@@ -94,11 +101,15 @@ func buildDetailLines(item *gh.Item, hostErrs map[string]error, width int) []str
 		for _, c := range item.Comments {
 			header := commentAuthorStyle.Render(c.Author) + "  " +
 				commentAgeStyle.Render(humanDuration(time.Since(c.CreatedAt))+" ago")
+			if ansi.StringWidth(header) > width {
+				header = ansi.Truncate(header, width, "…")
+			}
 			lines = append(lines, "", header)
 
-			// word-wrap body to panel width
+			// Word-wrap by terminal cells (not runes): emoji/CJK can exceed rune budget
+			// and soft-wrap the terminal without '\n', breaking lipgloss height counts.
 			for _, bodyLine := range wrapText(c.Body, width) {
-				lines = append(lines, commentBodyStyle.Render(bodyLine))
+				lines = append(lines, commentBodyStyle.Width(width).Render(bodyLine))
 			}
 		}
 	}
@@ -108,18 +119,23 @@ func buildDetailLines(item *gh.Item, hostErrs map[string]error, width int) []str
 
 func kv(key, value string, width int) string {
 	k := detailKeyStyle.Render(key + ": ")
-	availW := width - lipgloss.Width(k)
-	if availW < 1 {
-		availW = 1
+	kw := lipgloss.Width(k)
+	if kw >= width {
+		return ansi.Truncate(k, width, "…")
 	}
+	availW := width - kw
 	v := detailValueStyle.Width(availW).Render(value)
-	return k + v
+	line := k + v
+	if ansi.StringWidth(line) > width {
+		line = ansi.Truncate(line, width, "…")
+	}
+	return line
 }
 
-// wrapText breaks s into lines of at most maxWidth runes.
-func wrapText(s string, maxWidth int) []string {
-	if maxWidth < 1 {
-		maxWidth = 1
+// wrapText breaks s into lines of at most maxWidth terminal cells (wide-aware).
+func wrapText(s string, maxCells int) []string {
+	if maxCells < 1 {
+		maxCells = 1
 	}
 	var lines []string
 	for _, paragraph := range strings.Split(s, "\n") {
@@ -128,20 +144,33 @@ func wrapText(s string, maxWidth int) []string {
 			lines = append(lines, "")
 			continue
 		}
-		current := ""
-		for _, word := range words {
-			if current == "" {
-				current = word
-			} else if len([]rune(current))+1+len([]rune(word)) <= maxWidth {
-				current += " " + word
-			} else {
-				lines = append(lines, current)
-				current = word
+		var line string
+		flush := func() {
+			if line != "" {
+				lines = append(lines, line)
+				line = ""
 			}
 		}
-		if current != "" {
-			lines = append(lines, current)
+		for _, word := range words {
+			if ansi.StringWidth(word) > maxCells {
+				flush()
+				lines = append(lines, ansi.Truncate(word, maxCells, "…"))
+				continue
+			}
+			var next string
+			if line == "" {
+				next = word
+			} else {
+				next = line + " " + word
+			}
+			if ansi.StringWidth(next) <= maxCells {
+				line = next
+			} else {
+				flush()
+				line = word
+			}
 		}
+		flush()
 	}
 	return lines
 }

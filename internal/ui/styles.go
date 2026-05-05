@@ -18,6 +18,11 @@ var (
 	tabBarStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("236"))
 
+	// Shown on the right of the tab bar; compare with: tmux display-message -p '#{pane_width}x#{pane_height}'
+	terminalDimsStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("244")).
+				Background(lipgloss.Color("236"))
+
 	// list panel
 	listPanelStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder(), false, true, false, false).
@@ -31,8 +36,30 @@ var (
 	normalItemStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252"))
 
+	dimItemStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("239"))
+
 	itemSubtitleStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("240"))
+
+	listPRNumberStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("243"))
+
+	listPRRepoStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240"))
+
+	listRowAltStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("235"))
+
+	hostGroupHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("245")).
+				Background(lipgloss.Color("237")).
+				Padding(0, 1)
+
+	// Second row under a selected title: clear selection background so the
+	// terminal does not paint two full-width highlight bands (bg bleed).
+	selectedItemSubtitleStyle = itemSubtitleStyle.Background(lipgloss.NoColor{})
 
 	draftStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214"))

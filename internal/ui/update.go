@@ -7,10 +7,11 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	gh "github.com/i540498/dev-dashboard/internal/github"
 )
 
-func (m Model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		fetchCmd(m.clients),
@@ -18,12 +19,13 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
 		m.windowWidth = msg.Width
 		m.windowHeight = msg.Height
+		m.resizeSubviews()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -36,13 +38,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dataLoadedMsg:
 		m.loading = false
+		host, repo, title := "", "", ""
+		number := 0
+		hadSel := false
+		if it := m.selectedItem(); it != nil {
+			hadSel = true
+			host, repo = it.Host, it.Repo
+			number, title = it.Number, it.Title
+		}
 		m.items = msg.items
 		m.hostErrs = msg.hostErrs
 		m.lastFetched = msg.fetchedAt
-		if items := m.itemsForSection(m.activeSection); m.cursor >= len(items) {
-			m.cursor = max(0, len(items)-1)
+		m.applyLayoutSizes()
+		cmd := m.syncListFromSection()
+		if hadSel {
+			m.reselectAfterItemsReload(host, repo, number, title)
+		} else {
+			m.selectFirstSelectable()
 		}
-		return m, tickAfter(m.interval)
+		m.syncViewportContent(true)
+		return m, tea.Batch(cmd, tickAfter(m.interval))
 
 	case tickMsg:
 		m.loading = true
@@ -58,83 +73,108 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	items := m.itemsForSection(m.activeSection)
-
+func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 
-	case "j", "down":
-		if m.cursor < len(items)-1 {
-			m.cursor++
-			m.detailScrollOffset = 0
-		}
-
-	case "k", "up":
-		if m.cursor > 0 {
-			m.cursor--
-			m.detailScrollOffset = 0
-		}
-
 	case "tab":
 		m.activeSection = (m.activeSection + 1) % 3
-		m.cursor = 0
-		m.detailScrollOffset = 0
+		cmd := m.syncListFromSection()
+		m.selectFirstSelectable()
+		m.applyLayoutSizes()
+		m.syncViewportContent(true)
+		return m, cmd
 
 	case "shift+tab":
 		m.activeSection = (m.activeSection + 2) % 3
-		m.cursor = 0
-		m.detailScrollOffset = 0
+		cmd := m.syncListFromSection()
+		m.selectFirstSelectable()
+		m.applyLayoutSizes()
+		m.syncViewportContent(true)
+		return m, cmd
 
 	case "J":
-		m.detailScrollOffset++
+		vp := m.viewport
+		vp.ScrollDown(1)
+		m.viewport = vp
+		return m, nil
 
 	case "K":
-		if m.detailScrollOffset > 0 {
-			m.detailScrollOffset--
-		}
+		vp := m.viewport
+		vp.ScrollUp(1)
+		m.viewport = vp
+		return m, nil
 
 	case "r":
 		if !m.loading {
 			m.loading = true
 			return m, tea.Batch(m.spinner.Tick, fetchCmd(m.clients))
 		}
+		return m, nil
 
 	case "o":
 		if item := m.selectedItem(); item != nil {
 			return m, openBrowserCmd(item.URL)
 		}
+		return m, nil
 	}
 
-	return m, nil
+	// List navigation (j/k) — keep viewport from stealing j/k.
+	switch msg.String() {
+	case "j", "down", "k", "up":
+		idxBefore := m.list.GlobalIndex()
+		var listCmd tea.Cmd
+		m.list, listCmd = m.list.Update(msg)
+		switch msg.String() {
+		case "j", "down":
+			m.reconcileAwayFromSeparator(true)
+		default:
+			m.reconcileAwayFromSeparator(false)
+		}
+		// Same pipeline as resize / dataLoaded list leg: SetSize + pager clamp + viewport dims.
+		m.applyLayoutSizes()
+		m.syncViewportContent(m.list.GlobalIndex() != idxBefore)
+		return m, listCmd
+	}
+
+	var vpCmd tea.Cmd
+	m.viewport, vpCmd = m.viewport.Update(msg)
+	return m, vpCmd
 }
 
-func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	listW := m.listWidth()
 
 	switch msg.Button {
 	case tea.MouseButtonWheelUp:
 		if msg.X < listW {
-			if m.cursor > 0 {
-				m.cursor--
-				m.detailScrollOffset = 0
-			}
+			idxBefore := m.list.GlobalIndex()
+			mm := m.list
+			mm.CursorUp()
+			m.list = mm
+			m.reconcileAwayFromSeparator(false)
+			m.applyLayoutSizes()
+			m.syncViewportContent(m.list.GlobalIndex() != idxBefore)
 		} else {
-			if m.detailScrollOffset > 0 {
-				m.detailScrollOffset--
-			}
+			var vpCmd tea.Cmd
+			m.viewport, vpCmd = m.viewport.Update(msg)
+			return m, vpCmd
 		}
 
 	case tea.MouseButtonWheelDown:
 		if msg.X < listW {
-			items := m.itemsForSection(m.activeSection)
-			if m.cursor < len(items)-1 {
-				m.cursor++
-				m.detailScrollOffset = 0
-			}
+			idxBefore := m.list.GlobalIndex()
+			mm := m.list
+			mm.CursorDown()
+			m.list = mm
+			m.reconcileAwayFromSeparator(true)
+			m.applyLayoutSizes()
+			m.syncViewportContent(m.list.GlobalIndex() != idxBefore)
 		} else {
-			m.detailScrollOffset++
+			var vpCmd tea.Cmd
+			m.viewport, vpCmd = m.viewport.Update(msg)
+			return m, vpCmd
 		}
 
 	case tea.MouseButtonLeft:
@@ -154,26 +194,24 @@ func (m Model) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleListClick(y int) {
-	// tab bar is row 0, list starts at row 1
 	listIdx := y - 1
 	if listIdx < 0 {
 		return
 	}
-	items := m.itemsForSection(m.activeSection)
-	// each item occupies 2 rows (title + subtitle)
-	clicked := listIdx / 2
-	if clicked < len(items) {
-		m.cursor = clicked
-		m.detailScrollOffset = 0
+	// One terminal row per item (ShowDescription=false); was /2 for title+subtitle.
+	clicked := listIdx
+	items := m.list.VisibleItems()
+	if len(items) == 0 {
+		return
 	}
-}
-
-func (m Model) listWidth() int {
-	w := m.windowWidth * 30 / 100
-	if w < 32 {
-		w = 32
+	start, _ := m.list.Paginator.GetSliceBounds(len(items))
+	globalIdx := start + clicked
+	if globalIdx >= 0 && globalIdx < len(items) {
+		m.list.Select(globalIdx)
+		m.reconcileAwayFromSeparator(true)
+		m.applyLayoutSizes()
+		m.syncViewportContent(true)
 	}
-	return w
 }
 
 func fetchCmd(clients []gh.HostClient) tea.Cmd {
@@ -216,4 +254,21 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// renderListBody is the raw list area (inside the list panel border).
+func (m *Model) renderListBody(contentH int) string {
+	if m.loading && len(m.itemsForSection(m.activeSection)) == 0 {
+		return lipgloss.NewStyle().
+			Width(max(1, m.list.Width())).
+			Height(contentH).
+			MaxHeight(contentH).
+			Render("")
+	}
+	return m.list.View()
+}
+
+// renderDetailPanel renders the detail viewport inside the padded panel.
+func (m *Model) renderDetailPanel(detailW, contentH int) string {
+	return detailPanelStyle.Width(detailW).MaxWidth(detailW).Height(contentH).MaxHeight(contentH).Render(m.viewport.View())
 }

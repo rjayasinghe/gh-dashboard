@@ -6,52 +6,79 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	gh "github.com/i540498/dev-dashboard/internal/github"
 )
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	if m.windowWidth == 0 {
 		return ""
 	}
 
 	tabBar := m.renderTabBar()
 	statusBar := m.renderStatusBar()
+	contentH := m.contentHeight()
 
-	tabBarH := lipgloss.Height(tabBar)
-	statusBarH := lipgloss.Height(statusBar)
-	// guard: if either bar wrapped (shouldn't happen after truncation), cap at 1
-	if tabBarH > 1 {
-		tabBarH = 1
-	}
-	if statusBarH > 1 {
-		statusBarH = 1
-	}
-	contentH := m.windowHeight - tabBarH - statusBarH
-	if contentH < 1 {
-		contentH = 1
-	}
+	listW, detailW, _, _, _ := m.layoutDimensions()
 
-	listW := m.listWidth()
-	detailW := m.windowWidth - listW - 2 // -2 for border
-	if detailW < 10 {
-		detailW = 10
-	}
+	list := m.renderListBody(contentH)
+	detail := m.renderDetailPanel(detailW, contentH)
 
-	list := m.renderList(listW, contentH)
-	detail := renderDetail(m.selectedItem(), m.hostErrs, m.detailScrollOffset, detailW, contentH)
+	listPanel := listPanelStyle.Width(listW).MaxWidth(listW).Height(contentH).MaxHeight(contentH).Render(list)
 
 	body := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		listPanelStyle.Width(listW).Height(contentH).Render(list),
-		detailPanelStyle.Width(detailW).Height(contentH).Render(detail),
+		listPanel,
+		detail,
 	)
 
-	return lipgloss.JoinVertical(lipgloss.Left, tabBar, body, statusBar)
+	body, _, _, _ = ansiTruncatePhysicalLinesPastWidth(body, m.windowWidth)
+
+	out := lipgloss.JoinVertical(lipgloss.Left, tabBar, body, statusBar)
+	out = clampViewLinesToDisplayWidth(out, m.windowWidth)
+
+	return out
 }
 
-// --- tab bar ---
+// clampViewLinesToDisplayWidth prevents terminal soft-wrap: any logical row wider
+// than the terminal shifts subsequent rows and corrupts the layout (duplicate
+// selection / missing tab bar).
+func clampViewLinesToDisplayWidth(s string, maxCells int) string {
+	if maxCells < 1 {
+		maxCells = 1
+	}
+	lines := strings.Split(s, "\n")
+	for i, ln := range lines {
+		if w := ansi.StringWidth(ln); w > maxCells {
+			lines[i] = ansi.Truncate(ln, maxCells, "…")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
 
-func (m Model) renderTabBar() string {
+// ansiTruncatePhysicalLinesPastWidth clamps each row of lipgloss.JoinHorizontal output:
+// Join pads with spaces using ansi.StringWidth; if the emulator paints wider than ansi
+// reports, rows can extend past listW+detailW and the terminal wraps (My PRs + detail).
+func ansiTruncatePhysicalLinesPastWidth(block string, maxCells int) (out string, clipped bool, worstBefore int, rows int) {
+	if maxCells < 1 {
+		maxCells = 1
+	}
+	lines := strings.Split(block, "\n")
+	for i, ln := range lines {
+		w := ansi.StringWidth(ln)
+		if w > maxCells {
+			clipped = true
+			rows++
+			if w > worstBefore {
+				worstBefore = w
+			}
+			lines[i] = ansi.Truncate(ln, maxCells, "…")
+		}
+	}
+	return strings.Join(lines, "\n"), clipped, worstBefore, rows
+}
+
+func (m *Model) renderTabBar() string {
 	sections := []gh.Section{gh.SectionMyPRs, gh.SectionReviewNeeded, gh.SectionMyIssues}
 	labels := []string{"My PRs", "Review Needed", "Issues"}
 
@@ -69,118 +96,50 @@ func (m Model) renderTabBar() string {
 		}
 	}
 
+	dims := terminalDimsStyle.Render(fmt.Sprintf("%d×%d", m.windowWidth, m.windowHeight))
 	var status string
 	if m.loading {
-		status = " " + m.spinner.View() + " "
+		status = " " + m.spinner.View() + " " + dims
 	} else if !m.lastFetched.IsZero() {
-		status = "  " + humanDuration(time.Since(m.lastFetched)) + "  "
+		status = "  " + humanDuration(time.Since(m.lastFetched)) + "  " + dims
+	} else {
+		status = " " + dims
 	}
 
-	// build left (tabs) and right (status) sides; lipgloss fills the gap
 	left := strings.Join(tabs, "")
 	leftW := lipgloss.Width(left)
 	rightW := lipgloss.Width(status)
+
+	if leftW+rightW >= m.windowWidth {
+		maxLeft := m.windowWidth - rightW - 1
+		if maxLeft < 12 {
+			maxLeft = max(8, m.windowWidth*3/5)
+		}
+		if maxLeft < 1 {
+			maxLeft = 1
+		}
+		left = ansi.Truncate(left, maxLeft, "…")
+		leftW = lipgloss.Width(left)
+	}
+
 	gapW := m.windowWidth - leftW - rightW
 	if gapW < 1 {
 		gapW = 1
 	}
 
 	line := left + strings.Repeat(" ", gapW) + status
-	// if the assembled line is still wider than windowWidth, trim status
 	if lipgloss.Width(line) > m.windowWidth {
-		line = left
+		line = ansi.Truncate(line, m.windowWidth, "…")
 	}
 
-	return tabBarStyle.Width(m.windowWidth).Render(line)
+	return tabBarStyle.Width(m.windowWidth).MaxWidth(m.windowWidth).Render(line)
 }
 
-// --- status bar ---
-
-func (m Model) renderStatusBar() string {
+func (m *Model) renderStatusBar() string {
 	hints := "j/k: navigate   J/K: scroll detail   tab: switch tab   o: open in browser   r: refresh   q: quit"
-	// truncate to terminal width so it never wraps and adds an unexpected line
 	hints = truncate(hints, m.windowWidth-2)
 	return statusBarStyle.Width(m.windowWidth).Render(hints)
 }
-
-// --- list panel ---
-
-// Each item renders as two lines:
-//   line 1: "> Title"  (or "  Title")
-//   line 2: "  host · repo"
-
-func (m Model) renderList(width, height int) string {
-	items := m.itemsForSection(m.activeSection)
-
-	if len(items) == 0 {
-		if m.loading {
-			return ""
-		}
-		return normalItemStyle.Render("  No items")
-	}
-
-	// each item = 2 lines; figure out which window of items fits
-	visibleCount := height / 2
-	if visibleCount < 1 {
-		visibleCount = 1
-	}
-
-	// keep cursor in the visible window
-	start := m.cursor - visibleCount + 1
-	if start < 0 {
-		start = 0
-	}
-	if m.cursor < start {
-		start = m.cursor
-	}
-	end := start + visibleCount
-	if end > len(items) {
-		end = len(items)
-		start = end - visibleCount
-		if start < 0 {
-			start = 0
-		}
-	}
-
-	maxTitleW := width - 3 // prefix "  " or "> " + 1 spare
-
-	var lines []string
-	for i := start; i < end; i++ {
-		item := items[i]
-		selected := i == m.cursor
-
-		prefix := "  "
-		if selected {
-			prefix = "> "
-		}
-
-		title := truncate(item.Title, maxTitleW)
-		titleLine := prefix + title
-
-		subtitle := "  " + truncate(item.Host+" · "+item.Repo, width-3)
-
-		if selected {
-			lines = append(lines,
-				selectedItemStyle.Width(width).Render(titleLine),
-				itemSubtitleStyle.Width(width).Render(subtitle),
-			)
-		} else {
-			lines = append(lines,
-				normalItemStyle.Render(titleLine),
-				itemSubtitleStyle.Render(subtitle),
-			)
-		}
-	}
-
-	// pad
-	for len(lines) < height {
-		lines = append(lines, "")
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// --- helpers ---
 
 func truncate(s string, max int) string {
 	runes := []rune(s)

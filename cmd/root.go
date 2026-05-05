@@ -28,13 +28,13 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().Duration("interval", 5*time.Minute, "Auto-refresh interval")
-	rootCmd.Flags().Bool("debug", false, "Write debug log to debug.log")
+	rootCmd.Flags().Bool("mouse", false, "Enable mouse (wheel, clicks); off by default to avoid terminal reflow glitches")
 	rootCmd.Flags().String("config", config.DefaultPath, "Path to config file")
 }
 
 func run(cmd *cobra.Command, args []string) error {
 	interval, _ := cmd.Flags().GetDuration("interval")
-	debug, _ := cmd.Flags().GetBool("debug")
+	enableMouse, _ := cmd.Flags().GetBool("mouse")
 	cfgPath, _ := cmd.Flags().GetString("config")
 
 	cfg, err := config.Load(cfgPath)
@@ -49,11 +49,9 @@ func run(cmd *cobra.Command, args []string) error {
 
 	m := ui.New(clients, interval)
 
-	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion()}
-	if debug {
-		if f, err := tea.LogToFile("debug.log", "debug"); err == nil {
-			defer f.Close()
-		}
+	opts := []tea.ProgramOption{tea.WithAltScreen()}
+	if enableMouse {
+		opts = append(opts, tea.WithMouseCellMotion())
 	}
 
 	p := tea.NewProgram(m, opts...)
