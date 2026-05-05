@@ -1,54 +1,19 @@
 # dev-dashboard
 
-A terminal dashboard that aggregates your GitHub pull requests and issues across multiple GitHub hosts (github.com and GitHub Enterprise Server instances) into a single TUI.
+A native macOS app that aggregates your GitHub pull requests and issues across multiple GitHub hosts (github.com and GitHub Enterprise Server instances) into a single dashboard.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  dev-dashboard  My PRs: 3  Review: 2  Issues: 5        Last: 2m ago  r↺ │
-├──────────────────────────┬──────────────────────────────────────────────┤
-│ ▼ My PRs                 │  Fix: Add retry logic for flaky tests        │
-│   [github.com]           │  repo: myorg/myrepo                          │
-│ > Fix: Add retry logic.. │  status: open                                │
-│   Add pagination suppo.. │  draft: no                                   │
-│   [github.mycompany.com] │  reviews: approved                           │
-│   Refactor auth module   │  opened: 3d ago                              │
-│                          │  author: octocat                             │
-│ ▼ Review Needed          │                                              │
-│   [github.mycompany.com] │  https://github.com/myorg/myrepo/pull/123   │
-│   Update CI pipeline     │                                              │
-│                          │  [o] open in browser                         │
-│ ▼ My Issues              │                                              │
-│   [github.com]           │                                              │
-│   Login page broken      │                                              │
-└──────────────────────────┴──────────────────────────────────────────────┘
-  j/k/scroll: navigate   click: select   tab: section   o/click-detail: browser   r: refresh   q: quit
-```
+Built with SwiftUI and targeting macOS 14+.
 
 ## Prerequisites
 
-- [Go](https://go.dev) 1.22 or later
+- macOS 14 (Sonoma) or later
+- [Swift](https://www.swift.org) 6.0+ (included with Xcode or Command Line Tools)
 - [gh CLI](https://cli.github.com) authenticated for each host you want to use
 
 ```sh
 gh auth login                                    # github.com
 gh auth login --hostname github.mycompany.com    # GitHub Enterprise
 ```
-
-## Build
-
-```sh
-git clone <repo-url>
-cd dev-dashboard
-go build -o dev-dashboard .
-```
-
-Or with size optimisations:
-
-```sh
-CGO_ENABLED=0 go build -ldflags="-s -w" -o dev-dashboard .
-```
-
-The result is a single static binary with no runtime dependencies.
 
 ## Configuration
 
@@ -68,45 +33,65 @@ hosts = [
 ]
 ```
 
-Only the hosts listed here will be contacted. The app reads their tokens from
-the gh CLI keychain — no tokens are stored in the config file.
+Only the hosts listed here will be contacted. The app reads their OAuth tokens
+from the gh CLI config (`~/.config/gh/hosts.yml`) — no tokens are stored in the
+dashboard config file.
 
-### Custom config path
-
-```sh
-dev-dashboard --config /path/to/config.toml
-```
-
-## Usage
+## Build & run
 
 ```sh
-./dev-dashboard
+cd macOS
+swift build
+swift run DevDashboard
 ```
 
-### Flags
+Or open `macOS/Package.swift` in Xcode for previews and the full IDE experience.
 
-| Flag | Default | Description |
-|---|---|---|
-| `--interval` | `5m` | Auto-refresh interval (e.g. `30s`, `2m`, `1h`) |
-| `--config` | `~/.config/dev-dashboard/config.toml` | Path to config file |
+## Validate config (CLI helper)
 
-### Keyboard shortcuts
+A small Go CLI is included to check your config without launching the GUI:
 
-| Key | Action |
+```sh
+go build -o dev-dashboard .
+./dev-dashboard validate
+./dev-dashboard validate --config /path/to/config.toml
+```
+
+## Tests
+
+```sh
+cd macOS
+swift run CoreTests
+```
+
+With Xcode installed you can also convert the tests to XCTest and run `swift test`.
+
+## Architecture
+
+```
+macOS/
+├── Sources/
+│   ├── DevDashboard/          # SwiftUI app (@main, views, view model)
+│   │   ├── DevDashboardApp.swift
+│   │   ├── DashboardViewModel.swift
+│   │   └── Views/
+│   │       ├── ContentView.swift
+│   │       ├── SidebarView.swift
+│   │       ├── ItemListView.swift
+│   │       ├── ItemRow.swift
+│   │       └── DetailView.swift
+│   └── Core/                  # Shared library (testable)
+│       ├── Config/            # TOML config loader
+│       ├── Credentials/       # gh hosts.yml token reader
+│       └── GitHub/            # GraphQL client, models, Codable types
+└── Tests/
+    └── CoreTests/             # Standalone test runner
+```
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
 |---|---|
-| `j` / `↓` | Move cursor down |
-| `k` / `↑` | Move cursor up |
-| `Tab` | Next section |
-| `Shift+Tab` | Previous section |
-| `o` | Open selected item in browser |
-| `r` | Force refresh |
-| `q` / `Ctrl+C` | Quit |
-
-### Mouse
-
-| Interaction | Action |
-|---|---|
-| Scroll wheel | Scroll the list |
-| Click item | Select it |
-| Click section header | Switch to that section |
-| Click detail pane | Open selected item in browser |
+| `⌘R` | Refresh all hosts |
+| Click link / Safari icon | Open selected item in browser |
+| Standard macOS selection | Navigate sidebar and list |

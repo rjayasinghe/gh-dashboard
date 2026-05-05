@@ -3,20 +3,20 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/i540498/dev-dashboard/internal/config"
-	gh "github.com/i540498/dev-dashboard/internal/github"
-	"github.com/i540498/dev-dashboard/internal/ui"
 )
-
 
 var rootCmd = &cobra.Command{
 	Use:   "dev-dashboard",
-	Short: "Terminal dashboard for GitHub PRs and issues",
-	RunE:  run,
+	Short: "Terminal helper for the Dev Dashboard macOS app",
+}
+
+var validateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate the config file and print the configured hosts",
+	RunE:  runValidate,
 }
 
 func Execute() {
@@ -27,14 +27,11 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().Duration("interval", 5*time.Minute, "Auto-refresh interval")
-	rootCmd.Flags().Bool("mouse", false, "Enable mouse (wheel, clicks); off by default to avoid terminal reflow glitches")
-	rootCmd.Flags().String("config", config.DefaultPath, "Path to config file")
+	rootCmd.AddCommand(validateCmd)
+	validateCmd.Flags().String("config", config.DefaultPath, "Path to config file")
 }
 
-func run(cmd *cobra.Command, args []string) error {
-	interval, _ := cmd.Flags().GetDuration("interval")
-	enableMouse, _ := cmd.Flags().GetBool("mouse")
+func runValidate(cmd *cobra.Command, args []string) error {
 	cfgPath, _ := cmd.Flags().GetString("config")
 
 	cfg, err := config.Load(cfgPath)
@@ -42,19 +39,10 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clients, err := gh.NewHostClients(cfg.GitHub.Hosts)
-	if err != nil {
-		return err
+	fmt.Println("Config OK")
+	fmt.Printf("Hosts (%d):\n", len(cfg.GitHub.Hosts))
+	for _, h := range cfg.GitHub.Hosts {
+		fmt.Printf("  • %s\n", h)
 	}
-
-	m := ui.New(clients, interval)
-
-	opts := []tea.ProgramOption{tea.WithAltScreen()}
-	if enableMouse {
-		opts = append(opts, tea.WithMouseCellMotion())
-	}
-
-	p := tea.NewProgram(m, opts...)
-	_, err = p.Run()
-	return err
+	return nil
 }
