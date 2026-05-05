@@ -1,6 +1,6 @@
 import Foundation
 
-public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashable {
+public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashable, Codable {
     case myPRs = 0
     case reviewNeeded = 1
     case myIssues = 2
@@ -31,7 +31,7 @@ public struct ItemComment: Sendable, Hashable, Codable, Identifiable {
     public let createdAt: Date
 }
 
-public struct DashboardItem: Sendable, Identifiable, Hashable {
+public struct DashboardItem: Sendable, Identifiable, Hashable, Codable {
     public let id: String
     public let number: Int
     public let title: String

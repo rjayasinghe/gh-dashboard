@@ -47,6 +47,20 @@ swift run DevDashboard
 
 Or open `macOS/Package.swift` in Xcode for previews and the full IDE experience.
 
+## Local cache
+
+Fetched data is cached locally at:
+
+```
+~/Library/Application Support/DevDashboard/snapshot.json
+```
+
+Sync is **uni-directional** — data flows only from GitHub to the local cache, never
+the other way. On each successful refresh, items for that host are replaced in the
+cache. If a host's fetch fails (network error, expired token, etc.), its previously
+cached items are preserved so the dashboard stays populated. On launch, the cache is
+loaded immediately for an instant UI before the first network request completes.
+
 ## Validate config (CLI helper)
 
 A small Go CLI is included to check your config without launching the GUI:

@@ -310,6 +310,121 @@ assertEqual(badge("pending"), "clock.fill", "pending badge")
 assert(badge("") == nil, "empty status has no badge")
 
 // ──────────────────────────────────────────────
+// Snapshot persistence: round-trip
+// ──────────────────────────────────────────────
+
+section("Snapshot persistence")
+
+do {
+    let comment = ItemComment(author: "bob", body: "lgtm", createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+    let item = DashboardItem(
+        id: "gh-pr-org/repo-7", number: 7, title: "Add caching",
+        url: "https://github.com/org/repo/pull/7",
+        host: "github.com", repo: "org/repo", state: "OPEN", isDraft: false,
+        createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+        updatedAt: Date(timeIntervalSince1970: 1_700_100_000),
+        author: "alice", labels: ["perf"], section: .myPRs,
+        comments: [comment], reviewStatus: "approved"
+    )
+    let snapshot = PersistedSnapshot(items: [item], savedAt: Date(timeIntervalSince1970: 1_700_200_000))
+
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(snapshot)
+
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let decoded = try decoder.decode(PersistedSnapshot.self, from: data)
+
+    assertEqual(decoded.schemaVersion, 1, "schema version round-trip")
+    assertEqual(decoded.items.count, 1, "items count round-trip")
+    let di = decoded.items[0]
+    assertEqual(di.id, "gh-pr-org/repo-7", "item id round-trip")
+    assertEqual(di.number, 7, "item number round-trip")
+    assertEqual(di.title, "Add caching", "item title round-trip")
+    assertEqual(di.host, "github.com", "item host round-trip")
+    assertEqual(di.repo, "org/repo", "item repo round-trip")
+    assertEqual(di.isDraft, false, "item isDraft round-trip")
+    assertEqual(di.author, "alice", "item author round-trip")
+    assertEqual(di.labels, ["perf"], "item labels round-trip")
+    assertEqual(di.section, .myPRs, "item section round-trip")
+    assertEqual(di.reviewStatus, "approved", "item reviewStatus round-trip")
+    assertEqual(di.comments.count, 1, "item comments round-trip")
+    assertEqual(di.comments[0].author, "bob", "comment author round-trip")
+    assertEqual(di.comments[0].body, "lgtm", "comment body round-trip")
+} catch {
+    failed += 1; print("  FAIL snapshot round-trip: \(error)")
+}
+
+// ──────────────────────────────────────────────
+// Merge-by-host: failed host retains cached items
+// ──────────────────────────────────────────────
+
+section("Merge by host")
+
+do {
+    let cached = [
+        DashboardItem(
+            id: "a-pr-1", number: 1, title: "A1", url: "", host: "hostA", repo: "r",
+            state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
+            author: "x", labels: [], section: .myPRs, comments: [], reviewStatus: ""
+        ),
+        DashboardItem(
+            id: "b-pr-2", number: 2, title: "B2", url: "", host: "hostB", repo: "r",
+            state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
+            author: "y", labels: [], section: .reviewNeeded, comments: [], reviewStatus: ""
+        ),
+    ]
+
+    let freshFromA = [
+        DashboardItem(
+            id: "a-pr-3", number: 3, title: "A3-new", url: "", host: "hostA", repo: "r",
+            state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
+            author: "x", labels: [], section: .myPRs, comments: [], reviewStatus: ""
+        ),
+    ]
+
+    let successfulHosts: Set<String> = ["hostA"]
+
+    var merged = freshFromA
+    for item in cached where !successfulHosts.contains(item.host) {
+        merged.append(item)
+    }
+
+    assertEqual(merged.count, 2, "merge total count")
+    assert(merged.contains(where: { $0.id == "a-pr-3" }), "fresh hostA item present")
+    assert(!merged.contains(where: { $0.id == "a-pr-1" }), "stale hostA item replaced")
+    assert(merged.contains(where: { $0.id == "b-pr-2" }), "failed hostB item retained")
+}
+
+// ──────────────────────────────────────────────
+// SnapshotStore: file save + load round-trip
+// ──────────────────────────────────────────────
+
+section("SnapshotStore file I/O")
+
+do {
+    let item = DashboardItem(
+        id: "io-1", number: 10, title: "IO test", url: "",
+        host: "github.com", repo: "o/r", state: "OPEN", isDraft: true,
+        createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+        updatedAt: Date(timeIntervalSince1970: 1_700_100_000),
+        author: "z", labels: ["ci"], section: .myIssues,
+        comments: [], reviewStatus: ""
+    )
+    let snap = PersistedSnapshot(items: [item], savedAt: Date(timeIntervalSince1970: 1_700_200_000))
+    SnapshotStore.save(snap)
+    if let loaded = SnapshotStore.load() {
+        assertEqual(loaded.items.count, 1, "store load item count")
+        assertEqual(loaded.items[0].id, "io-1", "store load item id")
+        assertEqual(loaded.items[0].isDraft, true, "store load isDraft")
+        assertEqual(loaded.schemaVersion, 1, "store load schema")
+    } else {
+        assert(false, "SnapshotStore.load() returned nil after save")
+    }
+}
+
+// ──────────────────────────────────────────────
 // Summary
 // ──────────────────────────────────────────────
 

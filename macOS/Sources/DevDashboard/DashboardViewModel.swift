@@ -60,12 +60,20 @@ final class DashboardViewModel {
         }
     }
 
+    func loadCache() {
+        guard let snapshot = SnapshotStore.load() else { return }
+        items = snapshot.items
+        lastFetch = snapshot.savedAt
+    }
+
     func refresh() async {
         guard !hosts.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
 
-        var allItems: [DashboardItem] = []
+        let previousItems = items
+        var successfulHosts: Set<String> = []
+        var fetchedItems: [DashboardItem] = []
         var newErrors: [String: String] = [:]
 
         await withTaskGroup(of: (String, Result<[DashboardItem], Error>).self) { group in
@@ -87,28 +95,37 @@ final class DashboardViewModel {
             for await (host, result) in group {
                 switch result {
                 case .success(let fetched):
-                    allItems.append(contentsOf: fetched)
-                    newErrors.removeValue(forKey: host)
+                    fetchedItems.append(contentsOf: fetched)
+                    successfulHosts.insert(host)
                 case .failure(let error):
                     newErrors[host] = error.localizedDescription
                 }
             }
         }
 
-        allItems.sort {
+        // Merge: keep cached items for hosts that failed; replace with fresh data for hosts that succeeded.
+        var merged = fetchedItems
+        for item in previousItems where !successfulHosts.contains(item.host) {
+            merged.append(item)
+        }
+
+        merged.sort {
             if $0.host != $1.host { return $0.host < $1.host }
             if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
             return $0.number < $1.number
         }
 
-        items = allItems
+        items = merged
         errorsByHost = newErrors
         lastFetch = Date()
+
+        SnapshotStore.save(PersistedSnapshot(items: merged))
     }
 
     func startPeriodicRefresh() async {
         loadConfig()
         loadCredentials()
+        loadCache()
         await refresh()
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(refreshInterval))

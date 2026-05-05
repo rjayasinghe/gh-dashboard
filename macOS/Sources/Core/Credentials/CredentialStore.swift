@@ -22,6 +22,19 @@ public enum CredentialStore {
     private static let goKeyringPrefix = "go-keyring-base64:"
 
     private static func keychainToken(forHost host: String) -> String? {
+        // Try Security framework first (works when ACL allows this binary).
+        if let raw = keychainTokenViaAPI(forHost: host) {
+            return decodeGoKeyring(raw)
+        }
+        // Fallback: shell out to `security` which runs under the user's
+        // login session and always has ACL access to their own keychain.
+        if let raw = keychainTokenViaCLI(forHost: host) {
+            return decodeGoKeyring(raw)
+        }
+        return nil
+    }
+
+    private static func keychainTokenViaAPI(forHost host: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "gh:\(host)",
@@ -37,6 +50,31 @@ public enum CredentialStore {
               !raw.isEmpty
         else { return nil }
 
+        return raw
+    }
+
+    private static func keychainTokenViaCLI(forHost host: String) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = ["find-generic-password", "-s", "gh:\(host)", "-w"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let raw = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let raw, !raw.isEmpty else { return nil }
+            return raw
+        } catch {
+            return nil
+        }
+    }
+
+    private static func decodeGoKeyring(_ raw: String) -> String? {
         // go-keyring (used by gh) stores tokens as "go-keyring-base64:<base64>"
         if raw.hasPrefix(goKeyringPrefix) {
             let b64 = String(raw.dropFirst(goKeyringPrefix.count))
@@ -45,7 +83,6 @@ public enum CredentialStore {
             else { return nil }
             return token
         }
-
         return raw
     }
 
