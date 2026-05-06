@@ -24,6 +24,7 @@ public struct GraphQLClient: Sendable {
           ... on PullRequest {
             number
             title
+            body
             url
             state
             isDraft
@@ -38,6 +39,7 @@ public struct GraphQLClient: Sendable {
           ... on Issue {
             number
             title
+            body
             url
             state
             createdAt
@@ -107,6 +109,7 @@ public struct GraphQLClient: Sendable {
                         id: "\(host)-pr-\(pr.repository.nameWithOwner)-\(pr.number)",
                         number: pr.number,
                         title: pr.title,
+                        body: pr.body,
                         url: pr.url,
                         host: host,
                         repo: pr.repository.nameWithOwner,
@@ -125,6 +128,7 @@ public struct GraphQLClient: Sendable {
                         id: "\(host)-issue-\(issue.repository.nameWithOwner)-\(issue.number)",
                         number: issue.number,
                         title: issue.title,
+                        body: issue.body,
                         url: issue.url,
                         host: host,
                         repo: issue.repository.nameWithOwner,

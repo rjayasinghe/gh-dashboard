@@ -35,6 +35,7 @@ public struct DashboardItem: Sendable, Identifiable, Hashable, Codable {
     public let id: String
     public let number: Int
     public let title: String
+    public let body: String
     public let url: String
     public let host: String
     public let repo: String

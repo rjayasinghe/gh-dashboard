@@ -45,6 +45,7 @@ enum GQLNode: Decodable {
 struct GQLPR: Decodable {
     let number: Int
     let title: String
+    let body: String
     let url: String
     let state: String
     let isDraft: Bool
@@ -60,6 +61,7 @@ struct GQLPR: Decodable {
 struct GQLIssue: Decodable {
     let number: Int
     let title: String
+    let body: String
     let url: String
     let state: String
     let createdAt: Date

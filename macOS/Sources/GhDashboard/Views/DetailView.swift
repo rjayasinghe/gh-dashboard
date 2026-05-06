@@ -14,6 +14,10 @@ struct DetailView: View {
                     if !item.labels.isEmpty {
                         labelsSection(item)
                     }
+                    if !item.body.isEmpty {
+                        Divider()
+                        bodySection(item)
+                    }
                     if !item.comments.isEmpty {
                         Divider()
                         commentsSection(item)
@@ -136,6 +140,12 @@ struct DetailView: View {
     }
 
     @ViewBuilder
+    private func bodySection(_ item: DashboardItem) -> some View {
+        markdownText(item.body)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
     private func commentsSection(_ item: DashboardItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Comments (\(item.comments.count))")
@@ -153,7 +163,7 @@ struct DetailView: View {
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
-                    Text(comment.body)
+                    markdownText(comment.body)
                         .font(.body)
                         .textSelection(.enabled)
                 }
@@ -161,6 +171,16 @@ struct DetailView: View {
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
             }
         }
+    }
+
+    @ViewBuilder
+    private func markdownText(_ string: String) -> some View {
+        let attributed = (try? AttributedString(
+            markdown: string,
+            options: .init(interpretedSyntax: .full)
+        )) ?? AttributedString(string)
+        Text(attributed)
+            .textSelection(.enabled)
     }
 
     private func reviewColor(_ item: DashboardItem) -> Color {
