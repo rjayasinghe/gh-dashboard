@@ -8,6 +8,7 @@ Built with SwiftUI and targeting macOS 14+.
 
 - macOS 14 (Sonoma) or later
 - [Swift](https://www.swift.org) 6.0+ (included with Xcode or Command Line Tools)
+- [Go](https://go.dev) 1.21+ (only needed for the CLI validator)
 - [gh CLI](https://cli.github.com) authenticated for each host you want to use
 
 ```sh
@@ -39,6 +40,8 @@ dashboard config file.
 
 ## Build & run
 
+### Run directly with Swift
+
 ```sh
 cd macOS
 swift build
@@ -46,6 +49,20 @@ swift run DevDashboard
 ```
 
 Or open `macOS/Package.swift` in Xcode for previews and the full IDE experience.
+
+### Build a .app bundle
+
+```sh
+cd macOS
+./build-app.sh
+```
+
+This produces `macOS/DevDashboard.app` — ad-hoc signed and ready to run. To install:
+
+```sh
+cp -r macOS/DevDashboard.app /Applications/
+open /Applications/DevDashboard.app
+```
 
 ## Local cache
 
@@ -73,33 +90,60 @@ go build -o dev-dashboard .
 
 ## Tests
 
+### Swift (Core library)
+
+Uses a custom lightweight test harness that runs without Xcode or XCTest:
+
 ```sh
 cd macOS
 swift run CoreTests
 ```
 
-With Xcode installed you can also convert the tests to XCTest and run `swift test`.
+Covers: GraphQL JSON decoding, review status derivation, comment ordering, TOML
+config loading, `DashboardItem` properties and badges, snapshot round-trip
+encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservation.
+
+### Go (CLI / fetch logic)
+
+```sh
+go test ./internal/github
+```
+
+Covers: `deriveReviewStatus`, `commentsNewestFirst`, and `labelsFrom`.
 
 ## Architecture
 
 ```
-macOS/
-├── Sources/
-│   ├── DevDashboard/          # SwiftUI app (@main, views, view model)
-│   │   ├── DevDashboardApp.swift
-│   │   ├── DashboardViewModel.swift
-│   │   └── Views/
-│   │       ├── ContentView.swift
-│   │       ├── SidebarView.swift
-│   │       ├── ItemListView.swift
-│   │       ├── ItemRow.swift
-│   │       └── DetailView.swift
-│   └── Core/                  # Shared library (testable)
-│       ├── Config/            # TOML config loader
-│       ├── Credentials/       # gh hosts.yml token reader
-│       └── GitHub/            # GraphQL client, models, Codable types
-└── Tests/
-    └── CoreTests/             # Standalone test runner
+├── main.go                        # Go CLI entry point
+├── cmd/
+│   └── root.go                    # "validate" subcommand
+├── internal/
+│   ├── config/config.go           # TOML config loader (Go)
+│   └── github/                    # GraphQL client, models, fetch logic
+│       ├── client.go
+│       ├── fetch.go
+│       ├── types.go
+│       └── fetch_test.go          # Go unit tests
+└── macOS/
+    ├── Package.swift
+    ├── build-app.sh               # Assembles DevDashboard.app bundle
+    ├── Sources/
+    │   ├── DevDashboard/          # SwiftUI app (@main, views, view model)
+    │   │   ├── DevDashboardApp.swift
+    │   │   ├── DashboardViewModel.swift
+    │   │   └── Views/
+    │   │       ├── ContentView.swift
+    │   │       ├── SidebarView.swift
+    │   │       ├── ItemListView.swift
+    │   │       ├── ItemRow.swift
+    │   │       └── DetailView.swift
+    │   └── Core/                  # Shared library (testable)
+    │       ├── Config/            # TOML config loader
+    │       ├── Credentials/       # gh hosts.yml token reader
+    │       ├── GitHub/            # GraphQL client, models, Codable types
+    │       └── Persistence/       # SnapshotStore — local cache read/write
+    └── Tests/
+        └── CoreTests/             # Custom test runner (no Xcode required)
 ```
 
 ## Keyboard shortcuts
