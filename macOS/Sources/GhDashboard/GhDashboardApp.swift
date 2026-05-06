@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct DevDashboardApp: App {
+struct GhDashboardApp: App {
     @State private var viewModel = DashboardViewModel()
 
     var body: some Scene {

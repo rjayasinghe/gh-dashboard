@@ -5,7 +5,7 @@ public struct AppConfig: Sendable {
 }
 
 public enum ConfigLoader {
-    public static let defaultPath = "~/.config/dev-dashboard/config.toml"
+    public static let defaultPath = "~/.config/gh-dashboard/config.toml"
 
     public static func load(path: String = defaultPath) throws -> AppConfig {
         let expanded = (path as NSString).expandingTildeInPath

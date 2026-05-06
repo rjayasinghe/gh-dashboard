@@ -19,7 +19,7 @@ public enum SnapshotStore {
 
     public static var directoryURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("DevDashboard", isDirectory: true)
+        return appSupport.appendingPathComponent("GhDashboard", isDirectory: true)
     }
 
     private static var fileURL: URL {

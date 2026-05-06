@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "DevDashboard",
+    name: "GhDashboard",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
     ],
     targets: [
         .executableTarget(
-            name: "DevDashboard",
+            name: "GhDashboard",
             dependencies: ["Core"],
-            path: "Sources/DevDashboard",
+            path: "Sources/GhDashboard",
             exclude: ["Resources"]
         ),
         .target(
