@@ -11,7 +11,8 @@ let package = Package(
         .executableTarget(
             name: "DevDashboard",
             dependencies: ["Core"],
-            path: "Sources/DevDashboard"
+            path: "Sources/DevDashboard",
+            exclude: ["Resources"]
         ),
         .target(
             name: "Core",
