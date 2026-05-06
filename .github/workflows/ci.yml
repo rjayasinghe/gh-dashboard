@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: macOS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: swift build --product GhDashboard
+
+      - name: Test
+        run: swift test
