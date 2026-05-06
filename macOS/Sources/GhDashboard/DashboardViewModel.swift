@@ -126,6 +126,7 @@ final class DashboardViewModel {
         loadConfig()
         loadCredentials()
         loadCache()
+        await Task.yield()
         await refresh()
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(refreshInterval))
