@@ -58,7 +58,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign so macOS allows execution without Gatekeeper complaints
+# Ad-hoc sign for local dev only. Distributed builds need Developer ID + notarization
+# (see README “Gatekeeper and code signing”).
 codesign --force --sign - "$APP_BUNDLE"
 
 echo ""

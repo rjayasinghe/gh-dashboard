@@ -97,6 +97,30 @@ open /Applications/GhDashboard.app
 
 Pushing a version tag (`v*`, for example `v1.1.0`) runs `.github/workflows/release.yml`: it attaches **`GhDashboard.zip`** (ZIP of the app bundle) and **`GhDashboard.dmg`** (compressed disk image). The Actions workflow permissions must allow **Read and write** for `GITHUB_TOKEN` on `contents`; otherwise uploads fail and no GitHub Release is created.
 
+#### Gatekeeper and code signing
+
+Downloads are **not notarized** unless you configure Apple credentials below. Builds without a **Developer ID** certificate use an **ad-hoc** signature (`codesign --sign -`), so **Gatekeeper** will warn that Apple cannot verify malware absence. Users can still run the app: open the **`GhDashboard.app`** inside the disk image, **Control-click (or right-click) → Open**, then confirm once (or use **System Settings → Privacy & Security → Open Anyway** after a failed launch).
+
+For a **normal double-click open** with no security prompts, you need:
+
+1. A paid [**Apple Developer Program**](https://developer.apple.com/programs/) membership.
+2. A **Developer ID Application** certificate (create/export as **.p12**).
+3. **Notarization** using **App Store Connect API** credentials (recommended in CI) or an Apple ID with an **app-specific password**.
+
+Add these **repository secrets** so the release workflow can sign and staple:
+
+| Secret | Purpose |
+|--------|---------|
+| `MACOS_CERTIFICATE_BASE64` | Base64-encoded **.p12** export of your **Developer ID Application** certificate |
+| `MACOS_CERTIFICATE_PASSWORD` | Password for that **.p12** file |
+| `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API key ID |
+| `APP_STORE_CONNECT_API_ISSUER_ID` | Issuer ID from App Store Connect |
+| `APP_STORE_CONNECT_API_KEY_B64` | Base64-encoded **.p8** private key (contents of `AuthKey_XXXXXX.p8`) |
+
+**Alternative** for notarization (no API key): set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` instead of the three `APP_STORE_CONNECT_*` key variables.
+
+If `MACOS_CERTIFICATE_BASE64` is **unset**, the workflow keeps the previous behavior: ad-hoc sign only (no Developer ID, no notarization).
+
 ## Local cache
 
 Fetched data is cached locally at:
