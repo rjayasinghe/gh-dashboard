@@ -47,6 +47,7 @@ let fixture = """
           "__typename": "PullRequest",
           "number": 42,
           "title": "Fix widget alignment",
+          "body": "Align left column widgets.",
           "url": "https://github.com/org/repo/pull/42",
           "state": "OPEN",
           "isDraft": true,
@@ -67,6 +68,7 @@ let fixture = """
           "__typename": "Issue",
           "number": 99,
           "title": "Track performance regression",
+          "body": "Follow up perf work.",
           "url": "https://github.com/org/repo/issues/99",
           "state": "OPEN",
           "createdAt": "2025-11-15T08:00:00Z",
@@ -289,7 +291,7 @@ do {
 section("DashboardItem properties")
 
 let item = DashboardItem(
-    id: "t", number: 1, title: "T", url: "https://github.com/o/r/pull/1",
+    id: "t", number: 1, title: "T", body: "", url: "https://github.com/o/r/pull/1",
     host: "https://github.com", repo: "o/r", state: "OPEN", isDraft: false,
     createdAt: .now, updatedAt: .now, author: "a", labels: [],
     section: .myPRs, comments: [], reviewStatus: "approved"
@@ -298,7 +300,7 @@ assertEqual(item.displayHost, "github.com", "displayHost strips protocol")
 
 func badge(_ status: String) -> String? {
     DashboardItem(
-        id: "t", number: 1, title: "T", url: "", host: "h", repo: "r",
+        id: "t", number: 1, title: "T", body: "", url: "", host: "h", repo: "r",
         state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
         author: "a", labels: [], section: .myPRs, comments: [],
         reviewStatus: status
@@ -318,7 +320,7 @@ section("Snapshot persistence")
 do {
     let comment = ItemComment(author: "bob", body: "lgtm", createdAt: Date(timeIntervalSince1970: 1_700_000_000))
     let item = DashboardItem(
-        id: "gh-pr-org/repo-7", number: 7, title: "Add caching",
+        id: "gh-pr-org/repo-7", number: 7, title: "Add caching", body: "",
         url: "https://github.com/org/repo/pull/7",
         host: "github.com", repo: "org/repo", state: "OPEN", isDraft: false,
         createdAt: Date(timeIntervalSince1970: 1_700_000_000),
@@ -347,7 +349,7 @@ do {
     assertEqual(di.isDraft, false, "item isDraft round-trip")
     assertEqual(di.author, "alice", "item author round-trip")
     assertEqual(di.labels, ["perf"], "item labels round-trip")
-    assertEqual(di.section, .myPRs, "item section round-trip")
+    assertEqual(di.section, DashboardSection.myPRs, "item section round-trip")
     assertEqual(di.reviewStatus, "approved", "item reviewStatus round-trip")
     assertEqual(di.comments.count, 1, "item comments round-trip")
     assertEqual(di.comments[0].author, "bob", "comment author round-trip")
@@ -365,12 +367,12 @@ section("Merge by host")
 do {
     let cached = [
         DashboardItem(
-            id: "a-pr-1", number: 1, title: "A1", url: "", host: "hostA", repo: "r",
+            id: "a-pr-1", number: 1, title: "A1", body: "", url: "", host: "hostA", repo: "r",
             state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
             author: "x", labels: [], section: .myPRs, comments: [], reviewStatus: ""
         ),
         DashboardItem(
-            id: "b-pr-2", number: 2, title: "B2", url: "", host: "hostB", repo: "r",
+            id: "b-pr-2", number: 2, title: "B2", body: "", url: "", host: "hostB", repo: "r",
             state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
             author: "y", labels: [], section: .reviewNeeded, comments: [], reviewStatus: ""
         ),
@@ -378,7 +380,7 @@ do {
 
     let freshFromA = [
         DashboardItem(
-            id: "a-pr-3", number: 3, title: "A3-new", url: "", host: "hostA", repo: "r",
+            id: "a-pr-3", number: 3, title: "A3-new", body: "", url: "", host: "hostA", repo: "r",
             state: "OPEN", isDraft: false, createdAt: .now, updatedAt: .now,
             author: "x", labels: [], section: .myPRs, comments: [], reviewStatus: ""
         ),
@@ -405,7 +407,7 @@ section("SnapshotStore file I/O")
 
 do {
     let item = DashboardItem(
-        id: "io-1", number: 10, title: "IO test", url: "",
+        id: "io-1", number: 10, title: "IO test", body: "", url: "",
         host: "github.com", repo: "o/r", state: "OPEN", isDraft: true,
         createdAt: Date(timeIntervalSince1970: 1_700_000_000),
         updatedAt: Date(timeIntervalSince1970: 1_700_100_000),
