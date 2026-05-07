@@ -72,8 +72,20 @@ jobs:
       - name: Zip app bundle
         run: ditto -c -k --sequesterRsrc --keepParent GhDashboard.app GhDashboard.zip
 
+      - name: Create DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          rm -f GhDashboard.dmg
+          hdiutil create \
+            -volname "GH Dashboard ${VERSION}" \
+            -srcfolder GhDashboard.app \
+            -ov -format UDZO \
+            GhDashboard.dmg
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: macOS/GhDashboard.zip
+          files: |
+            macOS/GhDashboard.zip
+            macOS/GhDashboard.dmg
           generate_release_notes: true
