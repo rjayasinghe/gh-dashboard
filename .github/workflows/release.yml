@@ -5,6 +5,13 @@ on:
     tags:
       - "v*"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   build:
     runs-on: macos-latest
@@ -13,7 +20,7 @@ jobs:
         working-directory: macOS
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build
         run: swift build -c release --product GhDashboard
