@@ -150,3 +150,7 @@ encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservatio
 | `⌘R` | Refresh all hosts |
 | Click link / Safari icon | Open selected item in browser |
 | Standard macOS selection | Navigate sidebar and list |
+
+## Contributing
+
+`main` is protected. Open changes from a feature branch and merge via pull request after CI passes.
