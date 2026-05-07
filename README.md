@@ -93,6 +93,10 @@ cp -r macOS/GhDashboard.app /Applications/
 open /Applications/GhDashboard.app
 ```
 
+### Releases
+
+Pushing a version tag (`v*`, for example `v1.1.0`) runs `.github/workflows/release.yml`: it attaches **`GhDashboard.zip`** (ZIP of the app bundle) and **`GhDashboard.dmg`** (compressed disk image). The Actions workflow permissions must allow **Read and write** for `GITHUB_TOKEN` on `contents`; otherwise uploads fail and no GitHub Release is created.
+
 ## Local cache
 
 Fetched data is cached locally at:
