@@ -93,33 +93,27 @@ cp -r macOS/GhDashboard.app /Applications/
 open /Applications/GhDashboard.app
 ```
 
+If macOS refuses the first open, use **Control-click the app → Open** (see **First launch: Gatekeeper** under Releases below).
+
 ### Releases
 
 Pushing a version tag (`v*`, for example `v1.1.0`) runs `.github/workflows/release.yml`: it attaches **`GhDashboard.zip`** (ZIP of the app bundle) and **`GhDashboard.dmg`** (compressed disk image). The Actions workflow permissions must allow **Read and write** for `GITHUB_TOKEN` on `contents`; otherwise uploads fail and no GitHub Release is created.
 
-#### Gatekeeper and code signing
+#### First launch: Gatekeeper (no Apple Developer account needed)
 
-Downloads are **not notarized** unless you configure Apple credentials below. Builds without a **Developer ID** certificate use an **ad-hoc** signature (`codesign --sign -`), so **Gatekeeper** will warn that Apple cannot verify malware absence. Users can still run the app: open the **`GhDashboard.app`** inside the disk image, **Control-click (or right-click) → Open**, then confirm once (or use **System Settings → Privacy & Security → Open Anyway** after a failed launch).
+Release builds are **ad-hoc signed** for open distribution, so macOS may say it **cannot check the app for malicious software** the first time you open it. You do **not** need an Apple Developer membership. Use this workaround:
 
-For a **normal double-click open** with no security prompts, you need:
+1. **From the DMG:** double-click **`GhDashboard.dmg`** to mount it.
+2. In the Finder window, **Control-click** (or **right-click**) **`GhDashboard.app`**—do not double-click yet.
+3. Choose **Open** from the menu, then click **Open** in the security dialog.
 
-1. A paid [**Apple Developer Program**](https://developer.apple.com/programs/) membership.
-2. A **Developer ID Application** certificate (create/export as **.p12**).
-3. **Notarization** using **App Store Connect API** credentials (recommended in CI) or an Apple ID with an **app-specific password**.
+**If you already double-clicked and it was blocked:** open **System Settings → Privacy & Security**, scroll to the message about GhDashboard, and click **Open Anyway**.
 
-Add these **repository secrets** so the release workflow can sign and staple:
+After you approve it once, you can open the app normally (double-click) including after copying **`GhDashboard.app`** to **Applications**.
 
-| Secret | Purpose |
-|--------|---------|
-| `MACOS_CERTIFICATE_BASE64` | Base64-encoded **.p12** export of your **Developer ID Application** certificate |
-| `MACOS_CERTIFICATE_PASSWORD` | Password for that **.p12** file |
-| `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API key ID |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | Issuer ID from App Store Connect |
-| `APP_STORE_CONNECT_API_KEY_B64` | Base64-encoded **.p8** private key (contents of `AuthKey_XXXXXX.p8`) |
+#### Optional (maintainers only): Developer ID and notarization
 
-**Alternative** for notarization (no API key): set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` instead of the three `APP_STORE_CONNECT_*` key variables.
-
-If `MACOS_CERTIFICATE_BASE64` is **unset**, the workflow keeps the previous behavior: ad-hoc sign only (no Developer ID, no notarization).
+To ship builds that pass Gatekeeper without the steps above, a maintainer would need an **Apple Developer Program** membership, **Developer ID** signing, and **notarization** in CI. Configure the **repository secrets** listed in **`macOS/scripts/sign-release-bundle.sh`** and `.github/workflows/release.yml` (`MACOS_CERTIFICATE_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, and either App Store Connect API key variables or `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`). If those secrets are **unset**, releases stay ad-hoc signed and end users rely on the **first launch** workaround.
 
 ## Local cache
 
