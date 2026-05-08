@@ -93,9 +93,27 @@ cp -r macOS/GhDashboard.app /Applications/
 open /Applications/GhDashboard.app
 ```
 
+If macOS refuses the first open, use **Control-click the app → Open** (see **First launch: Gatekeeper** under Releases below).
+
 ### Releases
 
 Pushing a version tag (`v*`, for example `v1.1.0`) runs `.github/workflows/release.yml`: it attaches **`GhDashboard.zip`** (ZIP of the app bundle) and **`GhDashboard.dmg`** (compressed disk image). The Actions workflow permissions must allow **Read and write** for `GITHUB_TOKEN` on `contents`; otherwise uploads fail and no GitHub Release is created.
+
+#### First launch: Gatekeeper (no Apple Developer account needed)
+
+Release builds are **ad-hoc signed** for open distribution, so macOS may say it **cannot check the app for malicious software** the first time you open it. You do **not** need an Apple Developer membership. Use this workaround:
+
+1. **From the DMG:** double-click **`GhDashboard.dmg`** to mount it.
+2. In the Finder window, **Control-click** (or **right-click**) **`GhDashboard.app`**—do not double-click yet.
+3. Choose **Open** from the menu, then click **Open** in the security dialog.
+
+**If you already double-clicked and it was blocked:** open **System Settings → Privacy & Security**, scroll to the message about GhDashboard, and click **Open Anyway**.
+
+After you approve it once, you can open the app normally (double-click) including after copying **`GhDashboard.app`** to **Applications**.
+
+#### Optional (maintainers only): Developer ID and notarization
+
+To ship builds that pass Gatekeeper without the steps above, a maintainer would need an **Apple Developer Program** membership, **Developer ID** signing, and **notarization** in CI. Configure the **repository secrets** listed in **`macOS/scripts/sign-release-bundle.sh`** and `.github/workflows/release.yml` (`MACOS_CERTIFICATE_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, and either App Store Connect API key variables or `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`). If those secrets are **unset**, releases stay ad-hoc signed and end users rely on the **first launch** workaround.
 
 ## Local cache
 
