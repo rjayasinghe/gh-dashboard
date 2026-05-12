@@ -2,6 +2,8 @@ import Foundation
 
 public struct AppConfig: Sendable {
     public let hosts: [String]
+    /// DoD issues tab; always set (defaults match SAP internal CAP + Author Action filter).
+    public let myDoDIssues: MyDoDIssuesSettings
 }
 
 public enum ConfigLoader {
@@ -18,7 +20,8 @@ public enum ConfigLoader {
         guard !hosts.isEmpty else {
             throw ConfigError.noHosts(expanded)
         }
-        return AppConfig(hosts: hosts)
+        let myDoDIssues = MyDoDIssuesSettings.parse(fromToml: contents)
+        return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues)
     }
 
     private static func parseHosts(from toml: String) -> [String] {

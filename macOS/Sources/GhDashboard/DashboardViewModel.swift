@@ -13,6 +13,7 @@ final class DashboardViewModel {
     var configError: String?
 
     private var hosts: [String] = []
+    private var myDoDIssuesSettings: MyDoDIssuesSettings = .builtInDefault
     private var credentials: [String: String] = [:]
     private let refreshInterval: TimeInterval = 300
 
@@ -44,6 +45,7 @@ final class DashboardViewModel {
         do {
             let cfg = try ConfigLoader.load()
             hosts = cfg.hosts
+            myDoDIssuesSettings = cfg.myDoDIssues
             configError = nil
         } catch {
             configError = error.localizedDescription
@@ -76,16 +78,23 @@ final class DashboardViewModel {
         var fetchedItems: [DashboardItem] = []
         var newErrors: [String: String] = [:]
 
+        let hostsSnapshot = hosts
+        let dodSnapshot = myDoDIssuesSettings
+
         await withTaskGroup(of: (String, Result<[DashboardItem], Error>).self) { group in
-            for host in hosts {
+            for host in hostsSnapshot {
                 guard let token = credentials[host] else {
                     newErrors[host] = "No token"
                     continue
                 }
                 let client = GraphQLClient(host: host, token: token)
+                let dodForHost: MyDoDIssuesSettings? =
+                    hostsSnapshot.contains(dodSnapshot.host) && dodSnapshot.host == host
+                    ? dodSnapshot
+                    : nil
                 group.addTask {
                     do {
-                        let items = try await client.fetchAll()
+                        let items = try await client.fetchAll(myDoDIssues: dodForHost)
                         return (host, .success(items))
                     } catch {
                         return (host, .failure(error))

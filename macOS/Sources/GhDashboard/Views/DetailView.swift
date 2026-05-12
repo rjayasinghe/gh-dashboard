@@ -90,7 +90,7 @@ struct DetailView: View {
             metadataRow("Author", item.author)
             metadataRow("Opened", item.createdAt.formatted(.relative(presentation: .named)))
             metadataRow("Updated", item.updatedAt.formatted(.relative(presentation: .named)))
-            if item.section != .myIssues {
+            if item.section != .myIssues && item.section != .myDoDIssues {
                 metadataRow("Draft", item.isDraft ? "Yes" : "No")
                 HStack(spacing: 6) {
                     Text("Reviews")

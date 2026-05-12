@@ -67,6 +67,26 @@ Only the hosts listed here will be contacted. The app reads their OAuth tokens
 from the gh CLI config (`~/.config/gh/hosts.yml`) — no tokens are stored in the
 dashboard config file.
 
+### My DoD issues (CAP on SAP GitHub Enterprise)
+
+The sidebar tab **My DoD issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding issues with the label **Author Action**. Defaults match the internal CAP project (`repository = SAP/cap`); override if your `nameWithOwner` differs.
+
+```toml
+[github]
+hosts = [
+  "github.com",
+  "github.tools.sap",
+]
+
+# Optional — omit to use defaults below
+[my_dod_issues]
+host = "github.tools.sap"
+repository = "SAP/cap"
+exclude_label = "Author Action"
+```
+
+`github.tools.sap` must appear in `hosts` and you must be logged in with `gh auth login --hostname github.tools.sap`. You can use `repo` instead of `repository`.
+
 ## Build & run
 
 ### Run directly with Swift

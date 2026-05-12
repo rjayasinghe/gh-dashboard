@@ -191,6 +191,32 @@ assertEqual(
 )
 
 // ──────────────────────────────────────────────
+// My DoD issues (CAP) search query
+// ──────────────────────────────────────────────
+
+section("My DoD issues search query")
+
+let dod = MyDoDIssuesSettings(host: "github.tools.sap", repository: "SAP/cap", excludeLabel: "Author Action")
+assertEqual(
+    dod.searchQuery,
+    "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\"",
+    "DoD search query"
+)
+
+let dodToml = """
+[github]
+hosts = ["github.tools.sap"]
+
+[my_dod_issues]
+host = "github.tools.sap"
+repository = "org/custom"
+exclude_label = "Foo Bar"
+"""
+let dodParsed = MyDoDIssuesSettings.parse(fromToml: dodToml)
+assertEqual(dodParsed.repository, "org/custom", "parse my_dod_issues repository")
+assertEqual(dodParsed.excludeLabel, "Foo Bar", "parse my_dod_issues exclude_label")
+
+// ──────────────────────────────────────────────
 // Comment ordering
 // ──────────────────────────────────────────────
 

@@ -61,10 +61,14 @@ public struct GraphQLClient: Sendable {
         ("is:issue is:open assignee:@me archived:false", .myIssues),
     ]
 
-    public func fetchAll() async throws -> [DashboardItem] {
+    public func fetchAll(myDoDIssues: MyDoDIssuesSettings?) async throws -> [DashboardItem] {
         var allItems: [DashboardItem] = []
         for sq in Self.sectionQueries {
             let items = try await fetchSection(searchString: sq.query, section: sq.section)
+            allItems.append(contentsOf: items)
+        }
+        if let dod = myDoDIssues, dod.host == host, !dod.repository.isEmpty {
+            let items = try await fetchSection(searchString: dod.searchQuery, section: .myDoDIssues)
             allItems.append(contentsOf: items)
         }
         return allItems
