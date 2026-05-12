@@ -2,8 +2,8 @@ import Foundation
 
 public struct AppConfig: Sendable {
     public let hosts: [String]
-    /// "My issues" (CAP) tab settings; always set (defaults match SAP internal CAP + excluded labels filter).
-    public let myDoDIssues: MyDoDIssuesSettings
+    /// Filtered “My issues” tab; `nil` when `[my_issues]` / `[my_dod_issues]` is absent or incomplete (tab hidden).
+    public let myDoDIssues: MyDoDIssuesSettings?
 }
 
 public enum ConfigLoader {

@@ -1,7 +1,8 @@
 import Foundation
 
-/// Settings for the "My issues" sidebar tab (CAP on `github.tools.sap` by default): open issues assigned to you on one repo,
-/// excluding labels (default: CAP on SAP GitHub Enterprise).
+/// Settings for the filtered **My issues** sidebar tab: open issues assigned to you in one repository,
+/// excluding configured labels. Enable by adding `[my_issues]` (or legacy `[my_dod_issues]`) with **`host`**
+/// and **`repository`** in `config.toml`.
 public struct MyDoDIssuesSettings: Sendable, Equatable {
     public let host: String
     public let repository: String
@@ -13,13 +14,6 @@ public struct MyDoDIssuesSettings: Sendable, Equatable {
         self.repository = repository
         self.excludeLabels = excludeLabels
     }
-
-    /// Default targets `github.tools.sap` / SAP CAP; override in `[my_dod_issues]` if needed.
-    public static let builtInDefault = MyDoDIssuesSettings(
-        host: "github.tools.sap",
-        repository: "SAP/cap",
-        excludeLabels: ["Author Action"]
-    )
 
     /// GitHub issue search string for the GraphQL `search` API.
     public var searchQuery: String {
@@ -39,16 +33,19 @@ public struct MyDoDIssuesSettings: Sendable, Equatable {
         return parts.joined(separator: " ")
     }
 
-    /// Parses optional `[my_dod_issues]` from TOML; keys override `builtInDefault` when present.
-    public static func parse(fromToml toml: String) -> MyDoDIssuesSettings {
-        var result = builtInDefault
+    /// Parses `[my_issues]` or legacy `[my_dod_issues]` from TOML. Returns `nil` if neither section exists,
+    /// or if **`host`** or **`repository`** is missing or empty after parsing (feature off).
+    public static func parse(fromToml toml: String) -> MyDoDIssuesSettings? {
+        var hasSection = false
+        var result = MyDoDIssuesSettings(host: "", repository: "", excludeLabels: [])
         var inSection = false
 
         for rawLine in toml.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("#") { continue }
 
-            if line == "[my_dod_issues]" {
+            if line == "[my_issues]" || line == "[my_dod_issues]" {
+                hasSection = true
                 inSection = true
                 continue
             }
@@ -76,7 +73,12 @@ public struct MyDoDIssuesSettings: Sendable, Equatable {
             default: break
             }
         }
-        return result
+
+        guard hasSection else { return nil }
+        let host = result.host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let repo = result.repository.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !host.isEmpty, !repo.isEmpty else { return nil }
+        return MyDoDIssuesSettings(host: host, repository: repo, excludeLabels: result.excludeLabels)
     }
 
     /// Splits a comma-separated label list; trims whitespace; drops empty entries.

@@ -69,18 +69,22 @@ dashboard config file.
 
 ### “My issues” tab (optional filter)
 
-Besides the usual **Issues** tab (open issues assigned to you across your configured hosts), the sidebar includes a **My issues** tab that runs a **single-repository** GitHub search: open issues assigned to you, with configurable **excluded labels**. That query only runs against the host you name in `[my_dod_issues]` (which must also appear under `[github] hosts`), using the token from `gh` for that host.
+Besides the usual **Issues** tab (open issues assigned to you across your configured hosts), you can enable a second **My issues** tab that runs a **single-repository** GitHub search: open issues assigned to you, with configurable **excluded labels**.
 
-If you omit `[my_dod_issues]` entirely, the app uses its **built-in defaults** for that tab. To point the tab at your own enterprise host, repository, and labels, add a `[my_dod_issues]` section as in the reference below.
+**The tab is hidden and that query is not run** unless you add a **`[my_issues]`** or legacy **`[my_dod_issues]`** table with both **`host`** and **`repository`** set (hostname only, not a full `https://…` URL). The hostname must appear under **`[github] hosts`**, and you must authenticate it with `gh`.
 
-### `[my_dod_issues]` parameters
+Optional keys under that table only apply when the tab is enabled; **`exclude_labels`** may be omitted (no label exclusions).
 
-All keys are optional except that, to override defaults, you typically set at least **`host`** and **`repository`**. Values are plain strings unless noted.
+The legacy table name **`[my_dod_issues]`** is still accepted and behaves the same as **`[my_issues]`**.
+
+### `[my_issues]` parameters
+
+When the **`[my_issues]`** (or **`[my_dod_issues]`**) table is present, **`host`** and **`repository`** are **required**; otherwise the tab stays off. Other keys are optional.
 
 | Key | Meaning |
 |-----|--------|
-| **`host`** | GitHub hostname for this query (e.g. `github.com` or your Enterprise host). Must match an entry in `[github] hosts`. |
-| **`repository`** or **`repo`** | Repository in `owner/name` form (GitHub “name with owner”), e.g. `acme/mobile-app`. |
+| **`host`** | **Required.** GitHub **hostname only** for this query (e.g. `github.com` or `github.example.org`). Do not include `https://` or a path. Must match an entry in `[github] hosts`. |
+| **`repository`** or **`repo`** | **Required.** Repository in `owner/name` form (GitHub “name with owner”), e.g. `acme/mobile-app`. |
 | **`exclude_labels`** | Comma-separated list of label names. Any issue that has **at least one** of these labels is omitted from the tab. Each entry becomes a separate `-label:"…"` term in the underlying search. Whitespace around commas is ignored. |
 | **`exclude_label`** (legacy) | Same rules as **`exclude_labels`**; use one or the other. |
 
@@ -93,7 +97,7 @@ hosts = [
   "github.example.org",
 ]
 
-[my_dod_issues]
+[my_issues]
 host = "github.example.org"
 repository = "acme/mobile-app"
 exclude_labels = "waiting on reporter, blocked external"
@@ -111,7 +115,7 @@ gh auth login --hostname github.example.org
 [github]
 hosts = [ "github.com" ]
 
-[my_dod_issues]
+[my_issues]
 host = "github.com"
 repository = "contoso/docs"
 exclude_labels = "triage, question"

@@ -5,7 +5,7 @@ struct SidebarView: View {
     @Bindable var viewModel: DashboardViewModel
 
     var body: some View {
-        List(DashboardSection.allCases, id: \.self, selection: $viewModel.section) { sec in
+        List(viewModel.visibleSections, id: \.self, selection: $viewModel.section) { sec in
             Label {
                 HStack {
                     Text(sec.label)

@@ -13,9 +13,16 @@ final class DashboardViewModel {
     var configError: String?
 
     private var hosts: [String] = []
-    private var myDoDIssuesSettings: MyDoDIssuesSettings = .builtInDefault
+    private var myDoDIssuesSettings: MyDoDIssuesSettings?
     private var credentials: [String: String] = [:]
     private let refreshInterval: TimeInterval = 300
+
+    /// Sidebar rows; omits **My issues** (`.myDoDIssues`) when that feature is not configured.
+    var visibleSections: [DashboardSection] {
+        DashboardSection.allCases.filter { sec in
+            sec != .myDoDIssues || myDoDIssuesSettings != nil
+        }
+    }
 
     var selectedItem: DashboardItem? {
         guard let id = selectedItemID else { return nil }
@@ -49,7 +56,10 @@ final class DashboardViewModel {
             configError = nil
         } catch {
             configError = error.localizedDescription
+            hosts = []
+            myDoDIssuesSettings = nil
         }
+        normalizeSectionAndSelectionForFilteredIssuesTab()
     }
 
     func loadCredentials() {
@@ -64,8 +74,24 @@ final class DashboardViewModel {
 
     func loadCache() {
         guard let snapshot = SnapshotStore.load() else { return }
-        items = snapshot.items
+        var loaded = snapshot.items
+        if myDoDIssuesSettings == nil {
+            loaded.removeAll { $0.section == .myDoDIssues }
+        }
+        items = loaded
         lastFetch = snapshot.savedAt
+        normalizeSectionAndSelectionForFilteredIssuesTab()
+    }
+
+    private func normalizeSectionAndSelectionForFilteredIssuesTab() {
+        if section == .myDoDIssues, myDoDIssuesSettings == nil {
+            section = .myPRs
+        }
+        if let id = selectedItemID, let item = items.first(where: { $0.id == id }) {
+            if item.section == .myDoDIssues, myDoDIssuesSettings == nil {
+                selectedItemID = nil
+            }
+        }
     }
 
     func refresh() async {
@@ -88,10 +114,11 @@ final class DashboardViewModel {
                     continue
                 }
                 let client = GraphQLClient(host: host, token: token)
-                let dodForHost: MyDoDIssuesSettings? =
-                    hostsSnapshot.contains(dodSnapshot.host) && dodSnapshot.host == host
-                    ? dodSnapshot
-                    : nil
+                let dodForHost: MyDoDIssuesSettings? = {
+                    guard let dod = dodSnapshot else { return nil }
+                    guard hostsSnapshot.contains(dod.host), dod.host == host else { return nil }
+                    return dod
+                }()
                 group.addTask {
                     do {
                         let items = try await client.fetchAll(myDoDIssues: dodForHost)
@@ -118,6 +145,10 @@ final class DashboardViewModel {
             merged.append(item)
         }
 
+        if dodSnapshot == nil {
+            merged.removeAll { $0.section == .myDoDIssues }
+        }
+
         merged.sort {
             if $0.host != $1.host { return $0.host < $1.host }
             if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
@@ -127,6 +158,7 @@ final class DashboardViewModel {
         items = merged
         errorsByHost = newErrors
         lastFetch = Date()
+        normalizeSectionAndSelectionForFilteredIssuesTab()
 
         SnapshotStore.save(PersistedSnapshot(items: merged))
     }

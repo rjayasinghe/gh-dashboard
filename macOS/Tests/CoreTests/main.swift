@@ -191,27 +191,31 @@ assertEqual(
 )
 
 // ──────────────────────────────────────────────
-// My issues (CAP) search query
+// Filtered My issues: search query + TOML
 // ──────────────────────────────────────────────
 
-section("My issues (CAP) search query")
+section("Filtered My issues search query")
 
-let dod = MyDoDIssuesSettings(host: "github.tools.sap", repository: "SAP/cap", excludeLabels: ["Author Action"])
-assertEqual(
-    dod.searchQuery,
-    "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\"",
-    "CAP issues search query"
-)
-
-let dodMulti = MyDoDIssuesSettings(
-    host: "github.tools.sap",
-    repository: "SAP/cap",
-    excludeLabels: ["Author Action", "Blocked"]
+let filteredIssues = MyDoDIssuesSettings(
+    host: "git.example.com",
+    repository: "acme/widget",
+    excludeLabels: ["waiting on customer"]
 )
 assertEqual(
-    dodMulti.searchQuery,
-    "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\" -label:\"Blocked\"",
-    "CAP issues search query multiple exclude labels"
+    filteredIssues.searchQuery,
+    "repo:acme/widget is:issue is:open assignee:@me archived:false -label:\"waiting on customer\"",
+    "filtered issues search query"
+)
+
+let filteredMulti = MyDoDIssuesSettings(
+    host: "git.example.com",
+    repository: "acme/widget",
+    excludeLabels: ["waiting on customer", "blocked"]
+)
+assertEqual(
+    filteredMulti.searchQuery,
+    "repo:acme/widget is:issue is:open assignee:@me archived:false -label:\"waiting on customer\" -label:\"blocked\"",
+    "filtered issues search query multiple exclude labels"
 )
 
 assertEqual(
@@ -220,18 +224,43 @@ assertEqual(
     "comma-separated label parse"
 )
 
-let dodToml = """
+let myIssuesToml = """
 [github]
-hosts = ["github.tools.sap"]
+hosts = ["git.example.com"]
 
-[my_dod_issues]
-host = "github.tools.sap"
+[my_issues]
+host = "git.example.com"
 repository = "org/custom"
 exclude_labels = "Foo Bar, Baz Qux"
 """
-let dodParsed = MyDoDIssuesSettings.parse(fromToml: dodToml)
-assertEqual(dodParsed.repository, "org/custom", "parse my_dod_issues repository")
-assertEqual(dodParsed.excludeLabels, ["Foo Bar", "Baz Qux"], "parse my_dod_issues exclude_labels list")
+let myIssuesParsed = MyDoDIssuesSettings.parse(fromToml: myIssuesToml)
+if let myIssuesParsed {
+    assertEqual(myIssuesParsed.repository, "org/custom", "parse [my_issues] repository")
+    assertEqual(myIssuesParsed.excludeLabels, ["Foo Bar", "Baz Qux"], "parse [my_issues] exclude_labels list")
+} else {
+    assert(false, "parse [my_issues] should succeed")
+}
+
+let legacyToml = """
+[github]
+hosts = ["git.example.com"]
+
+[my_dod_issues]
+host = "git.example.com"
+repository = "legacy/repo"
+exclude_labels = "Stale"
+"""
+let legacyParsed = MyDoDIssuesSettings.parse(fromToml: legacyToml)
+if let legacyParsed {
+    assertEqual(legacyParsed.repository, "legacy/repo", "parse legacy [my_dod_issues] repository")
+    assertEqual(legacyParsed.excludeLabels, ["Stale"], "parse legacy [my_dod_issues] exclude_labels")
+} else {
+    assert(false, "parse legacy [my_dod_issues] should succeed")
+}
+
+assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil, "no [my_issues] section -> nil")
+assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\n") == nil, "empty [my_issues] without host/repo -> nil")
+assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\nhost = \"a\"\n") == nil, "my_issues without repository -> nil")
 
 // ──────────────────────────────────────────────
 // Comment ordering
@@ -267,6 +296,7 @@ do {
 
     let cfg = try ConfigLoader.load(path: tmp.path)
     assertEqual(cfg.hosts, ["github.com", "github.mycompany.com"], "multi-line hosts")
+    assert(cfg.myDoDIssues == nil, "filtered My issues off without [my_issues] table")
 } catch {
     failed += 1; print("  FAIL standard config: \(error)")
 }
