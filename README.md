@@ -69,7 +69,7 @@ dashboard config file.
 
 ### My DoD issues (CAP on SAP GitHub Enterprise)
 
-The sidebar tab **My DoD issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding issues with the label **Author Action**. Defaults match the internal CAP project (`repository = SAP/cap`); override if your `nameWithOwner` differs.
+The sidebar tab **My DoD issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding any issue that has **one of** the configured labels. Defaults match the internal CAP project (`repository = SAP/cap`) and a single excluded label **Author Action**; override if your `nameWithOwner` or label filters differ.
 
 ```toml
 [github]
@@ -82,10 +82,11 @@ hosts = [
 [my_dod_issues]
 host = "github.tools.sap"
 repository = "SAP/cap"
-exclude_label = "Author Action"
+# Comma-separated; each becomes a -label:"…" exclusion in GitHub search
+exclude_labels = "Author Action, Waiting on Author"
 ```
 
-`github.tools.sap` must appear in `hosts` and you must be logged in with `gh auth login --hostname github.tools.sap`. You can use `repo` instead of `repository`.
+`github.tools.sap` must appear in `hosts` and you must be logged in with `gh auth login --hostname github.tools.sap`. You can use `repo` instead of `repository`. The legacy key `exclude_label` is still accepted and uses the same comma-separated rules.
 
 ## Build & run
 

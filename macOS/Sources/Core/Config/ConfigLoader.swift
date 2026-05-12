@@ -2,7 +2,7 @@ import Foundation
 
 public struct AppConfig: Sendable {
     public let hosts: [String]
-    /// DoD issues tab; always set (defaults match SAP internal CAP + Author Action filter).
+    /// DoD issues tab; always set (defaults match SAP internal CAP + excluded labels filter).
     public let myDoDIssues: MyDoDIssuesSettings
 }
 

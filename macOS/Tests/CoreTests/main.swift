@@ -196,11 +196,28 @@ assertEqual(
 
 section("My DoD issues search query")
 
-let dod = MyDoDIssuesSettings(host: "github.tools.sap", repository: "SAP/cap", excludeLabel: "Author Action")
+let dod = MyDoDIssuesSettings(host: "github.tools.sap", repository: "SAP/cap", excludeLabels: ["Author Action"])
 assertEqual(
     dod.searchQuery,
     "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\"",
     "DoD search query"
+)
+
+let dodMulti = MyDoDIssuesSettings(
+    host: "github.tools.sap",
+    repository: "SAP/cap",
+    excludeLabels: ["Author Action", "Blocked"]
+)
+assertEqual(
+    dodMulti.searchQuery,
+    "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\" -label:\"Blocked\"",
+    "DoD search query multiple exclude labels"
+)
+
+assertEqual(
+    MyDoDIssuesSettings.parseCommaSeparatedLabels(" Author Action , Foo Bar ").joined(separator: "|"),
+    "Author Action|Foo Bar",
+    "comma-separated label parse"
 )
 
 let dodToml = """
@@ -210,11 +227,11 @@ hosts = ["github.tools.sap"]
 [my_dod_issues]
 host = "github.tools.sap"
 repository = "org/custom"
-exclude_label = "Foo Bar"
+exclude_labels = "Foo Bar, Baz Qux"
 """
 let dodParsed = MyDoDIssuesSettings.parse(fromToml: dodToml)
 assertEqual(dodParsed.repository, "org/custom", "parse my_dod_issues repository")
-assertEqual(dodParsed.excludeLabel, "Foo Bar", "parse my_dod_issues exclude_label")
+assertEqual(dodParsed.excludeLabels, ["Foo Bar", "Baz Qux"], "parse my_dod_issues exclude_labels")
 
 // ──────────────────────────────────────────────
 // Comment ordering

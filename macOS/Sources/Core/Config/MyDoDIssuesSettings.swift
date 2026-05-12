@@ -1,23 +1,24 @@
 import Foundation
 
 /// Settings for the "My DoD issues" sidebar tab: open issues assigned to you on one repo,
-/// excluding a label (default: CAP on SAP GitHub Enterprise).
+/// excluding labels (default: CAP on SAP GitHub Enterprise).
 public struct MyDoDIssuesSettings: Sendable, Equatable {
     public let host: String
     public let repository: String
-    public let excludeLabel: String
+    /// Labels to exclude from results (each becomes `-label:"…"` in GitHub search).
+    public let excludeLabels: [String]
 
-    public init(host: String, repository: String, excludeLabel: String) {
+    public init(host: String, repository: String, excludeLabels: [String]) {
         self.host = host
         self.repository = repository
-        self.excludeLabel = excludeLabel
+        self.excludeLabels = excludeLabels
     }
 
     /// Default targets `github.tools.sap` / SAP CAP; override in `[my_dod_issues]` if needed.
     public static let builtInDefault = MyDoDIssuesSettings(
         host: "github.tools.sap",
         repository: "SAP/cap",
-        excludeLabel: "Author Action"
+        excludeLabels: ["Author Action"]
     )
 
     /// GitHub issue search string for the GraphQL `search` API.
@@ -29,9 +30,10 @@ public struct MyDoDIssuesSettings: Sendable, Equatable {
             "assignee:@me",
             "archived:false",
         ]
-        let trimmed = excludeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            let inner = trimmed.replacingOccurrences(of: "\"", with: "")
+        for label in excludeLabels {
+            let t = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { continue }
+            let inner = t.replacingOccurrences(of: "\"", with: "")
             parts.append("-label:\"\(inner)\"")
         }
         return parts.joined(separator: " ")
@@ -61,15 +63,27 @@ public struct MyDoDIssuesSettings: Sendable, Equatable {
             guard let value = Self.stripTomlString(valueRaw), !value.isEmpty else { continue }
 
             switch key {
-            case "host": result = MyDoDIssuesSettings(host: value, repository: result.repository, excludeLabel: result.excludeLabel)
+            case "host":
+                result = MyDoDIssuesSettings(host: value, repository: result.repository, excludeLabels: result.excludeLabels)
             case "repository", "repo":
-                result = MyDoDIssuesSettings(host: result.host, repository: value, excludeLabel: result.excludeLabel)
-            case "exclude_label", "excludeLabel":
-                result = MyDoDIssuesSettings(host: result.host, repository: result.repository, excludeLabel: value)
+                result = MyDoDIssuesSettings(host: result.host, repository: value, excludeLabels: result.excludeLabels)
+            case "exclude_labels", "excludeLabels", "exclude_label", "excludeLabel":
+                result = MyDoDIssuesSettings(
+                    host: result.host,
+                    repository: result.repository,
+                    excludeLabels: Self.parseCommaSeparatedLabels(value)
+                )
             default: break
             }
         }
         return result
+    }
+
+    /// Splits a comma-separated label list; trims whitespace; drops empty entries.
+    public static func parseCommaSeparatedLabels(_ raw: String) -> [String] {
+        raw.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 
     private static func stripTomlString(_ raw: String) -> String? {
