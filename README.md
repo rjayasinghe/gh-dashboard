@@ -67,26 +67,57 @@ Only the hosts listed here will be contacted. The app reads their OAuth tokens
 from the gh CLI config (`~/.config/gh/hosts.yml`) — no tokens are stored in the
 dashboard config file.
 
-### My issues (CAP on SAP GitHub Enterprise)
+### “My issues” tab (optional filter)
 
-The sidebar tab **My issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding any issue that has **one of** the configured labels. Defaults match the internal CAP project (`repository = SAP/cap`) and a single excluded label **Author Action**; override if your `nameWithOwner` or label filters differ.
+Besides the usual **Issues** tab (open issues assigned to you across your configured hosts), the sidebar includes a **My issues** tab that runs a **single-repository** GitHub search: open issues assigned to you, with configurable **excluded labels**. That query only runs against the host you name in `[my_dod_issues]` (which must also appear under `[github] hosts`), using the token from `gh` for that host.
+
+If you omit `[my_dod_issues]` entirely, the app uses its **built-in defaults** for that tab. To point the tab at your own enterprise host, repository, and labels, add a `[my_dod_issues]` section as in the reference below.
+
+### `[my_dod_issues]` parameters
+
+All keys are optional except that, to override defaults, you typically set at least **`host`** and **`repository`**. Values are plain strings unless noted.
+
+| Key | Meaning |
+|-----|--------|
+| **`host`** | GitHub hostname for this query (e.g. `github.com` or your Enterprise host). Must match an entry in `[github] hosts`. |
+| **`repository`** or **`repo`** | Repository in `owner/name` form (GitHub “name with owner”), e.g. `acme/mobile-app`. |
+| **`exclude_labels`** | Comma-separated list of label names. Any issue that has **at least one** of these labels is omitted from the tab. Each entry becomes a separate `-label:"…"` term in the underlying search. Whitespace around commas is ignored. |
+| **`exclude_label`** (legacy) | Same rules as **`exclude_labels`**; use one or the other. |
+
+**Example (fictional company and product)**
 
 ```toml
 [github]
 hosts = [
   "github.com",
-  "github.tools.sap",
+  "github.example.org",
 ]
 
-# Optional — omit to use defaults below
 [my_dod_issues]
-host = "github.tools.sap"
-repository = "SAP/cap"
-# Comma-separated; each becomes a -label:"…" exclusion in GitHub search
-exclude_labels = "Author Action, Waiting on Author"
+host = "github.example.org"
+repository = "acme/mobile-app"
+exclude_labels = "waiting on reporter, blocked external"
 ```
 
-`github.tools.sap` must appear in `hosts` and you must be logged in with `gh auth login --hostname github.tools.sap`. You can use `repo` instead of `repository`. The legacy key `exclude_label` is still accepted and uses the same comma-separated rules.
+Authenticate the enterprise host like any other:
+
+```sh
+gh auth login --hostname github.example.org
+```
+
+**Another example** on github.com only:
+
+```toml
+[github]
+hosts = [ "github.com" ]
+
+[my_dod_issues]
+host = "github.com"
+repository = "contoso/docs"
+exclude_labels = "triage, question"
+```
+
+You can also write `repo = "contoso/docs"` instead of `repository`.
 
 ## Build & run
 
