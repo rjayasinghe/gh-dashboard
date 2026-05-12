@@ -191,16 +191,16 @@ assertEqual(
 )
 
 // ──────────────────────────────────────────────
-// My DoD issues (CAP) search query
+// My issues (CAP) search query
 // ──────────────────────────────────────────────
 
-section("My DoD issues search query")
+section("My issues (CAP) search query")
 
 let dod = MyDoDIssuesSettings(host: "github.tools.sap", repository: "SAP/cap", excludeLabels: ["Author Action"])
 assertEqual(
     dod.searchQuery,
     "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\"",
-    "DoD search query"
+    "CAP issues search query"
 )
 
 let dodMulti = MyDoDIssuesSettings(
@@ -211,7 +211,7 @@ let dodMulti = MyDoDIssuesSettings(
 assertEqual(
     dodMulti.searchQuery,
     "repo:SAP/cap is:issue is:open assignee:@me archived:false -label:\"Author Action\" -label:\"Blocked\"",
-    "DoD search query multiple exclude labels"
+    "CAP issues search query multiple exclude labels"
 )
 
 assertEqual(
@@ -231,7 +231,7 @@ exclude_labels = "Foo Bar, Baz Qux"
 """
 let dodParsed = MyDoDIssuesSettings.parse(fromToml: dodToml)
 assertEqual(dodParsed.repository, "org/custom", "parse my_dod_issues repository")
-assertEqual(dodParsed.excludeLabels, ["Foo Bar", "Baz Qux"], "parse my_dod_issues exclude_labels")
+assertEqual(dodParsed.excludeLabels, ["Foo Bar", "Baz Qux"], "parse my_dod_issues exclude_labels list")
 
 // ──────────────────────────────────────────────
 // Comment ordering

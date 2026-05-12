@@ -1,6 +1,6 @@
 import Foundation
 
-/// Settings for the "My DoD issues" sidebar tab: open issues assigned to you on one repo,
+/// Settings for the "My issues" sidebar tab (CAP on `github.tools.sap` by default): open issues assigned to you on one repo,
 /// excluding labels (default: CAP on SAP GitHub Enterprise).
 public struct MyDoDIssuesSettings: Sendable, Equatable {
     public let host: String

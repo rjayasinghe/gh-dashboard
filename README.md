@@ -67,9 +67,9 @@ Only the hosts listed here will be contacted. The app reads their OAuth tokens
 from the gh CLI config (`~/.config/gh/hosts.yml`) — no tokens are stored in the
 dashboard config file.
 
-### My DoD issues (CAP on SAP GitHub Enterprise)
+### My issues (CAP on SAP GitHub Enterprise)
 
-The sidebar tab **My DoD issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding any issue that has **one of** the configured labels. Defaults match the internal CAP project (`repository = SAP/cap`) and a single excluded label **Author Action**; override if your `nameWithOwner` or label filters differ.
+The sidebar tab **My issues** lists open issues assigned to you in the CAP repository on **`github.tools.sap`**, excluding any issue that has **one of** the configured labels. Defaults match the internal CAP project (`repository = SAP/cap`) and a single excluded label **Author Action**; override if your `nameWithOwner` or label filters differ.
 
 ```toml
 [github]

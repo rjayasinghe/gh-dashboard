@@ -13,7 +13,7 @@ public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashabl
         case .myPRs: "My PRs"
         case .reviewNeeded: "Review Needed"
         case .myIssues: "Issues"
-        case .myDoDIssues: "My DoD issues"
+        case .myDoDIssues: "My issues"
         }
     }
 
