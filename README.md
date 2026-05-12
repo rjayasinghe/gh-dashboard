@@ -123,6 +123,33 @@ exclude_labels = "triage, question"
 
 You can also write `repo = "contoso/docs"` instead of `repository`.
 
+### “Issue queue” tab (optional)
+
+A third optional tab lists **open issues with no assignee** in a single repository, where the issue has **at least one** of the labels listed in **`include_labels`** (comma-separated; combined with **`OR`** in GitHub search). **`host`** (hostname only), **`repository`**, and **`include_labels`** are all **required** when you use **`[issue_queue]`**; otherwise the tab stays hidden and nothing is fetched.
+
+The same rules apply as for **My issues**: the hostname must be in **`[github] hosts`**, and you authenticate with `gh` for that host.
+
+### `[issue_queue]` parameters
+
+| Key | Meaning |
+|-----|--------|
+| **`host`** | **Required.** Same as **`[my_issues]`** — hostname only, must match **`[github] hosts`**. |
+| **`repository`** or **`repo`** | **Required.** `owner/name` for the repository to search. |
+| **`include_labels`** | **Required.** Comma-separated label names. An issue is listed if it has **any** of these labels. |
+| **`include_label`** (legacy) | Same comma-separated parsing as **`include_labels`**. |
+
+**Example**
+
+```toml
+[github]
+hosts = [ "github.example.org" ]
+
+[issue_queue]
+host = "github.example.org"
+repository = "acme/support-tickets"
+include_labels = "ready for triage, needs review"
+```
+
 ## Build & run
 
 ### Run directly with Swift
@@ -193,7 +220,7 @@ swift run CoreTests
 ```
 
 Covers: GraphQL JSON decoding, review status derivation, comment ordering, TOML
-config loading, `DashboardItem` properties and badges, snapshot round-trip
+config loading (including optional **My issues** and **Issue queue** tables), `DashboardItem` properties and badges, snapshot round-trip
 encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservation.
 
 ## Architecture

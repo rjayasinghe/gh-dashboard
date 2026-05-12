@@ -4,6 +4,8 @@ public struct AppConfig: Sendable {
     public let hosts: [String]
     /// Filtered “My issues” tab; `nil` when `[my_issues]` / `[my_dod_issues]` is absent or incomplete (tab hidden).
     public let myDoDIssues: MyDoDIssuesSettings?
+    /// **Issue queue** tab; `nil` when `[issue_queue]` is absent or incomplete (tab hidden).
+    public let issueQueue: IssueQueueSettings?
 }
 
 public enum ConfigLoader {
@@ -21,7 +23,8 @@ public enum ConfigLoader {
             throw ConfigError.noHosts(expanded)
         }
         let myDoDIssues = MyDoDIssuesSettings.parse(fromToml: contents)
-        return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues)
+        let issueQueue = IssueQueueSettings.parse(fromToml: contents)
+        return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues, issueQueue: issueQueue)
     }
 
     private static func parseHosts(from toml: String) -> [String] {

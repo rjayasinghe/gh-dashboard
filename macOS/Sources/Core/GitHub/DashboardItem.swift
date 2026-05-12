@@ -5,6 +5,7 @@ public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashabl
     case reviewNeeded = 1
     case myIssues = 2
     case myDoDIssues = 3
+    case issueQueue = 4
 
     public var id: Int { rawValue }
 
@@ -14,6 +15,7 @@ public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashabl
         case .reviewNeeded: "Review Needed"
         case .myIssues: "Issues"
         case .myDoDIssues: "My issues"
+        case .issueQueue: "Issue queue"
         }
     }
 
@@ -23,6 +25,7 @@ public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashabl
         case .reviewNeeded: "eye"
         case .myIssues: "exclamationmark.circle"
         case .myDoDIssues: "checklist"
+        case .issueQueue: "tray.2"
         }
     }
 }

@@ -263,6 +263,53 @@ assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_iss
 assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\nhost = \"a\"\n") == nil, "my_issues without repository -> nil")
 
 // ──────────────────────────────────────────────
+// Issue queue search query + TOML
+// ──────────────────────────────────────────────
+
+section("Issue queue search query")
+
+let queueOne = IssueQueueSettings(
+    host: "git.example.com",
+    repository: "acme/inbox",
+    includeLabels: ["ready"]
+)
+assertEqual(
+    queueOne.searchQuery,
+    "repo:acme/inbox is:issue is:open no:assignee archived:false label:\"ready\"",
+    "issue queue single label query"
+)
+
+let queueMulti = IssueQueueSettings(
+    host: "git.example.com",
+    repository: "acme/inbox",
+    includeLabels: ["ready", "queued"]
+)
+assertEqual(
+    queueMulti.searchQuery,
+    "repo:acme/inbox is:issue is:open no:assignee archived:false (label:\"ready\" OR label:\"queued\")",
+    "issue queue OR labels query"
+)
+
+let queueToml = """
+[github]
+hosts = ["git.example.com"]
+
+[issue_queue]
+host = "git.example.com"
+repository = "acme/inbox"
+include_labels = "ready, queued"
+"""
+if let qp = IssueQueueSettings.parse(fromToml: queueToml) {
+    assertEqual(qp.repository, "acme/inbox", "parse [issue_queue] repository")
+    assertEqual(qp.includeLabels, ["ready", "queued"], "parse [issue_queue] include_labels")
+} else {
+    assert(false, "parse [issue_queue] should succeed")
+}
+
+assert(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil, "no [issue_queue] -> nil")
+assert(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[issue_queue]\nhost = \"a\"\nrepository = \"b/c\"\n") == nil, "issue_queue without include_labels -> nil")
+
+// ──────────────────────────────────────────────
 // Comment ordering
 // ──────────────────────────────────────────────
 
@@ -297,6 +344,7 @@ do {
     let cfg = try ConfigLoader.load(path: tmp.path)
     assertEqual(cfg.hosts, ["github.com", "github.mycompany.com"], "multi-line hosts")
     assert(cfg.myDoDIssues == nil, "filtered My issues off without [my_issues] table")
+    assert(cfg.issueQueue == nil, "issue queue off without [issue_queue] table")
 } catch {
     failed += 1; print("  FAIL standard config: \(error)")
 }
