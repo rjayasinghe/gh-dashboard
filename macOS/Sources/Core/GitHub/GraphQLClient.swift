@@ -61,11 +61,22 @@ public struct GraphQLClient: Sendable {
         ("is:issue is:open assignee:@me archived:false", .myIssues),
     ]
 
-    public func fetchAll() async throws -> [DashboardItem] {
+    public func fetchAll(myDoDIssues: MyDoDIssuesSettings?, issueQueue: IssueQueueSettings?) async throws -> [DashboardItem] {
         var allItems: [DashboardItem] = []
         for sq in Self.sectionQueries {
             let items = try await fetchSection(searchString: sq.query, section: sq.section)
             allItems.append(contentsOf: items)
+        }
+        if let dod = myDoDIssues, dod.host == host, !dod.repository.isEmpty {
+            let items = try await fetchSection(searchString: dod.searchQuery, section: .myDoDIssues)
+            allItems.append(contentsOf: items)
+        }
+        if let queue = issueQueue, queue.host == host, !queue.repository.isEmpty {
+            let q = queue.searchQuery
+            if !q.isEmpty {
+                let items = try await fetchSection(searchString: q, section: .issueQueue)
+                allItems.append(contentsOf: items)
+            }
         }
         return allItems
     }
@@ -124,8 +135,9 @@ public struct GraphQLClient: Sendable {
                         reviewStatus: deriveReviewStatus(pr.reviews.nodes)
                     ))
                 case .issue(let issue):
+                    let issueIdTag = (section == .issueQueue) ? "issue-queue" : "issue"
                     items.append(DashboardItem(
-                        id: "\(host)-issue-\(issue.repository.nameWithOwner)-\(issue.number)",
+                        id: "\(host)-\(issueIdTag)-\(issue.repository.nameWithOwner)-\(issue.number)",
                         number: issue.number,
                         title: issue.title,
                         body: issue.body,

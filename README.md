@@ -67,6 +67,89 @@ Only the hosts listed here will be contacted. The app reads their OAuth tokens
 from the gh CLI config (`~/.config/gh/hosts.yml`) — no tokens are stored in the
 dashboard config file.
 
+### “My issues” tab (optional filter)
+
+Besides the usual **Issues** tab (open issues assigned to you across your configured hosts), you can enable a second **My issues** tab that runs a **single-repository** GitHub search: open issues assigned to you, with configurable **excluded labels**.
+
+**The tab is hidden and that query is not run** unless you add a **`[my_issues]`** or legacy **`[my_dod_issues]`** table with both **`host`** and **`repository`** set (hostname only, not a full `https://…` URL). The hostname must appear under **`[github] hosts`**, and you must authenticate it with `gh`.
+
+Optional keys under that table only apply when the tab is enabled; **`exclude_labels`** may be omitted (no label exclusions).
+
+The legacy table name **`[my_dod_issues]`** is still accepted and behaves the same as **`[my_issues]`**.
+
+### `[my_issues]` parameters
+
+When the **`[my_issues]`** (or **`[my_dod_issues]`**) table is present, **`host`** and **`repository`** are **required**; otherwise the tab stays off. Other keys are optional.
+
+| Key | Meaning |
+|-----|--------|
+| **`host`** | **Required.** GitHub **hostname only** for this query (e.g. `github.com` or `github.example.org`). Do not include `https://` or a path. Must match an entry in `[github] hosts`. |
+| **`repository`** or **`repo`** | **Required.** Repository in `owner/name` form (GitHub “name with owner”), e.g. `acme/mobile-app`. |
+| **`exclude_labels`** | Comma-separated list of label names. Any issue that has **at least one** of these labels is omitted from the tab. Each entry becomes a separate `-label:"…"` term in the underlying search. Whitespace around commas is ignored. |
+| **`exclude_label`** (legacy) | Same rules as **`exclude_labels`**; use one or the other. |
+
+**Example (fictional company and product)**
+
+```toml
+[github]
+hosts = [
+  "github.com",
+  "github.example.org",
+]
+
+[my_issues]
+host = "github.example.org"
+repository = "acme/mobile-app"
+exclude_labels = "waiting on reporter, blocked external"
+```
+
+Authenticate the enterprise host like any other:
+
+```sh
+gh auth login --hostname github.example.org
+```
+
+**Another example** on github.com only:
+
+```toml
+[github]
+hosts = [ "github.com" ]
+
+[my_issues]
+host = "github.com"
+repository = "contoso/docs"
+exclude_labels = "triage, question"
+```
+
+You can also write `repo = "contoso/docs"` instead of `repository`.
+
+### “Issue queue” tab (optional)
+
+A third optional tab lists **open issues with no assignee** in a single repository, where the issue has **at least one** of the labels listed in **`include_labels`** (comma-separated; combined with **`OR`** in GitHub search). **`host`** (hostname only), **`repository`**, and **`include_labels`** are all **required** when you use **`[issue_queue]`**; otherwise the tab stays hidden and nothing is fetched.
+
+The same rules apply as for **My issues**: the hostname must be in **`[github] hosts`**, and you authenticate with `gh` for that host.
+
+### `[issue_queue]` parameters
+
+| Key | Meaning |
+|-----|--------|
+| **`host`** | **Required.** Same as **`[my_issues]`** — hostname only, must match **`[github] hosts`**. |
+| **`repository`** or **`repo`** | **Required.** `owner/name` for the repository to search. |
+| **`include_labels`** | **Required.** Comma-separated label names. An issue is listed if it has **any** of these labels. |
+| **`include_label`** (legacy) | Same comma-separated parsing as **`include_labels`**. |
+
+**Example**
+
+```toml
+[github]
+hosts = [ "github.example.org" ]
+
+[issue_queue]
+host = "github.example.org"
+repository = "acme/support-tickets"
+include_labels = "ready for triage, needs review"
+```
+
 ## Build & run
 
 ### Run directly with Swift
@@ -137,7 +220,7 @@ swift run CoreTests
 ```
 
 Covers: GraphQL JSON decoding, review status derivation, comment ordering, TOML
-config loading, `DashboardItem` properties and badges, snapshot round-trip
+config loading (including optional **My issues** and **Issue queue** tables), `DashboardItem` properties and badges, snapshot round-trip
 encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservation.
 
 ## Architecture

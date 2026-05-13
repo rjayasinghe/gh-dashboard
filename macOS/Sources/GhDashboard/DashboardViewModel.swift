@@ -13,8 +13,21 @@ final class DashboardViewModel {
     var configError: String?
 
     private var hosts: [String] = []
+    private var myDoDIssuesSettings: MyDoDIssuesSettings?
+    private var issueQueueSettings: IssueQueueSettings?
     private var credentials: [String: String] = [:]
     private let refreshInterval: TimeInterval = 300
+
+    /// Sidebar rows; omits optional tabs when their TOML blocks are missing or incomplete.
+    var visibleSections: [DashboardSection] {
+        DashboardSection.allCases.filter { sec in
+            switch sec {
+            case .myDoDIssues: return myDoDIssuesSettings != nil
+            case .issueQueue: return issueQueueSettings != nil
+            default: return true
+            }
+        }
+    }
 
     var selectedItem: DashboardItem? {
         guard let id = selectedItemID else { return nil }
@@ -44,10 +57,16 @@ final class DashboardViewModel {
         do {
             let cfg = try ConfigLoader.load()
             hosts = cfg.hosts
+            myDoDIssuesSettings = cfg.myDoDIssues
+            issueQueueSettings = cfg.issueQueue
             configError = nil
         } catch {
             configError = error.localizedDescription
+            hosts = []
+            myDoDIssuesSettings = nil
+            issueQueueSettings = nil
         }
+        normalizeSectionAndSelectionForOptionalTabs()
     }
 
     func loadCredentials() {
@@ -62,8 +81,33 @@ final class DashboardViewModel {
 
     func loadCache() {
         guard let snapshot = SnapshotStore.load() else { return }
-        items = snapshot.items
+        var loaded = snapshot.items
+        if myDoDIssuesSettings == nil {
+            loaded.removeAll { $0.section == .myDoDIssues }
+        }
+        if issueQueueSettings == nil {
+            loaded.removeAll { $0.section == .issueQueue }
+        }
+        items = loaded
         lastFetch = snapshot.savedAt
+        normalizeSectionAndSelectionForOptionalTabs()
+    }
+
+    private func normalizeSectionAndSelectionForOptionalTabs() {
+        if section == .myDoDIssues, myDoDIssuesSettings == nil {
+            section = .myPRs
+        }
+        if section == .issueQueue, issueQueueSettings == nil {
+            section = .myPRs
+        }
+        if let id = selectedItemID, let item = items.first(where: { $0.id == id }) {
+            if item.section == .myDoDIssues, myDoDIssuesSettings == nil {
+                selectedItemID = nil
+            }
+            if item.section == .issueQueue, issueQueueSettings == nil {
+                selectedItemID = nil
+            }
+        }
     }
 
     func refresh() async {
@@ -76,16 +120,30 @@ final class DashboardViewModel {
         var fetchedItems: [DashboardItem] = []
         var newErrors: [String: String] = [:]
 
+        let hostsSnapshot = hosts
+        let dodSnapshot = myDoDIssuesSettings
+        let queueSnapshot = issueQueueSettings
+
         await withTaskGroup(of: (String, Result<[DashboardItem], Error>).self) { group in
-            for host in hosts {
+            for host in hostsSnapshot {
                 guard let token = credentials[host] else {
                     newErrors[host] = "No token"
                     continue
                 }
                 let client = GraphQLClient(host: host, token: token)
+                let dodForHost: MyDoDIssuesSettings? = {
+                    guard let dod = dodSnapshot else { return nil }
+                    guard hostsSnapshot.contains(dod.host), dod.host == host else { return nil }
+                    return dod
+                }()
+                let queueForHost: IssueQueueSettings? = {
+                    guard let q = queueSnapshot else { return nil }
+                    guard hostsSnapshot.contains(q.host), q.host == host else { return nil }
+                    return q
+                }()
                 group.addTask {
                     do {
-                        let items = try await client.fetchAll()
+                        let items = try await client.fetchAll(myDoDIssues: dodForHost, issueQueue: queueForHost)
                         return (host, .success(items))
                     } catch {
                         return (host, .failure(error))
@@ -109,6 +167,13 @@ final class DashboardViewModel {
             merged.append(item)
         }
 
+        if dodSnapshot == nil {
+            merged.removeAll { $0.section == .myDoDIssues }
+        }
+        if queueSnapshot == nil {
+            merged.removeAll { $0.section == .issueQueue }
+        }
+
         merged.sort {
             if $0.host != $1.host { return $0.host < $1.host }
             if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
@@ -118,6 +183,7 @@ final class DashboardViewModel {
         items = merged
         errorsByHost = newErrors
         lastFetch = Date()
+        normalizeSectionAndSelectionForOptionalTabs()
 
         SnapshotStore.save(PersistedSnapshot(items: merged))
     }
