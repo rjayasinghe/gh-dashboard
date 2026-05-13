@@ -262,6 +262,37 @@ assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil
 assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\n") == nil, "empty [my_issues] without host/repo -> nil")
 assert(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\nhost = \"a\"\n") == nil, "my_issues without repository -> nil")
 
+// No exclude_labels → query has no -label terms
+assertEqual(
+    MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: []).searchQuery,
+    "repo:o/r is:issue is:open assignee:@me archived:false",
+    "my_issues searchQuery without excludeLabels"
+)
+
+// repo alias + legacy exclude_label (singular) accept comma-separated values
+let myIssuesAliasToml = """
+[github]
+hosts = ["git.example.com"]
+
+[my_issues]
+host = "git.example.com"
+repo = "alias/repo"
+exclude_label = "Foo, Bar"
+"""
+if let mp = MyDoDIssuesSettings.parse(fromToml: myIssuesAliasToml) {
+    assertEqual(mp.repository, "alias/repo", "[my_issues] repo alias parsed")
+    assertEqual(mp.excludeLabels, ["Foo", "Bar"], "[my_issues] legacy exclude_label parsed as list")
+} else {
+    assert(false, "parse [my_issues] with repo alias should succeed")
+}
+
+// Whitespace-only excludeLabels collapse to empty (no -label terms)
+assertEqual(
+    MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: ["", "   "]).searchQuery,
+    "repo:o/r is:issue is:open assignee:@me archived:false",
+    "blank excludeLabels are skipped"
+)
+
 // ──────────────────────────────────────────────
 // Issue queue search query + TOML
 // ──────────────────────────────────────────────
@@ -308,6 +339,74 @@ if let qp = IssueQueueSettings.parse(fromToml: queueToml) {
 
 assert(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil, "no [issue_queue] -> nil")
 assert(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[issue_queue]\nhost = \"a\"\nrepository = \"b/c\"\n") == nil, "issue_queue without include_labels -> nil")
+
+// repo alias + legacy include_label (singular)
+let queueAliasToml = """
+[github]
+hosts = ["git.example.com"]
+
+[issue_queue]
+host = "git.example.com"
+repo = "alias/queue"
+include_label = "ready, queued"
+"""
+if let qa = IssueQueueSettings.parse(fromToml: queueAliasToml) {
+    assertEqual(qa.repository, "alias/queue", "[issue_queue] repo alias parsed")
+    assertEqual(qa.includeLabels, ["ready", "queued"], "[issue_queue] legacy include_label parsed as list")
+} else {
+    assert(false, "parse [issue_queue] with repo alias should succeed")
+}
+
+// Empty / whitespace-only include_labels → still nil (feature off)
+assert(
+    IssueQueueSettings.parse(fromToml: """
+    [github]
+    hosts = ["git.example.com"]
+
+    [issue_queue]
+    host = "git.example.com"
+    repository = "o/r"
+    include_labels = ",  ,"
+    """) == nil,
+    "[issue_queue] with whitespace-only labels -> nil"
+)
+
+// searchQuery is empty when there are no usable labels (defensive)
+assertEqual(
+    IssueQueueSettings(host: "h", repository: "o/r", includeLabels: []).searchQuery,
+    "",
+    "issue queue searchQuery empty when no labels"
+)
+assertEqual(
+    IssueQueueSettings(host: "h", repository: "o/r", includeLabels: ["", "  "]).searchQuery,
+    "",
+    "issue queue searchQuery empty when labels are blank"
+)
+
+// ──────────────────────────────────────────────
+// DashboardSection raw value + Codable round-trip
+// ──────────────────────────────────────────────
+
+section("DashboardSection raw values")
+
+assertEqual(DashboardSection.myPRs.rawValue, 0, "myPRs raw value stable")
+assertEqual(DashboardSection.reviewNeeded.rawValue, 1, "reviewNeeded raw value stable")
+assertEqual(DashboardSection.myIssues.rawValue, 2, "myIssues raw value stable")
+assertEqual(DashboardSection.myDoDIssues.rawValue, 3, "myDoDIssues raw value stable")
+assertEqual(DashboardSection.issueQueue.rawValue, 4, "issueQueue raw value stable")
+assertEqual(DashboardSection.allCases.count, 5, "all sidebar sections enumerated")
+
+do {
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+    for sec in DashboardSection.allCases {
+        let data = try encoder.encode(sec)
+        let decoded = try decoder.decode(DashboardSection.self, from: data)
+        assertEqual(decoded, sec, "DashboardSection round-trip \(sec.label)")
+    }
+} catch {
+    failed += 1; print("  FAIL DashboardSection round-trip: \(error)")
+}
 
 // ──────────────────────────────────────────────
 // Comment ordering
@@ -384,6 +483,42 @@ do {
     assert(false, "should throw for empty hosts")
 } catch {
     passed += 1
+}
+
+// Both [my_issues] and [issue_queue] enabled in one config
+do {
+    let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
+    try """
+    [github]
+    hosts = ["git.example.com"]
+
+    [my_issues]
+    host = "git.example.com"
+    repository = "team/app"
+    exclude_labels = "blocked"
+
+    [issue_queue]
+    host = "git.example.com"
+    repository = "team/app"
+    include_labels = "ready, queued"
+    """.write(to: tmp, atomically: true, encoding: .utf8)
+    defer { try? FileManager.default.removeItem(at: tmp) }
+
+    let cfg = try ConfigLoader.load(path: tmp.path)
+    if let mi = cfg.myDoDIssues {
+        assertEqual(mi.repository, "team/app", "[my_issues] alongside [issue_queue]")
+        assertEqual(mi.excludeLabels, ["blocked"], "[my_issues] excludeLabels alongside [issue_queue]")
+    } else {
+        assert(false, "[my_issues] should be enabled when both tables present")
+    }
+    if let iq = cfg.issueQueue {
+        assertEqual(iq.repository, "team/app", "[issue_queue] alongside [my_issues]")
+        assertEqual(iq.includeLabels, ["ready", "queued"], "[issue_queue] includeLabels alongside [my_issues]")
+    } else {
+        assert(false, "[issue_queue] should be enabled when both tables present")
+    }
+} catch {
+    failed += 1; print("  FAIL combined optional tables: \(error)")
 }
 
 // Comments ignored
