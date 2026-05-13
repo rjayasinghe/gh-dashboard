@@ -11,9 +11,6 @@ env:
 jobs:
   build-and-test:
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: macOS
 
     steps:
       - uses: actions/checkout@v5

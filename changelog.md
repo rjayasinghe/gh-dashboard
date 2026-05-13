@@ -8,7 +8,7 @@ First tagged version of **gh-dashboard** as a native macOS app (commit `586f221`
 
 ### Scope
 
-- **Platform**: macOS 14+ app built with **SwiftUI** and Swift 6 (`macOS/Package.swift`).
+- **Platform**: macOS 14+ app built with **SwiftUI** and Swift 6 (Swift Package at the repo root; originally lived under `macOS/` and was flattened post-1.0.0).
 - **Multi-host GitHub**: Query **github.com** and **GitHub Enterprise Server** hosts listed in `~/.config/gh-dashboard/config.toml`; only configured hosts are contacted.
 - **Authentication**: Reuses **GitHub CLI** (`gh`) OAuth tokens from `~/.config/gh/hosts.yml` — no separate token storage in the app config.
 - **Data source**: **GraphQL** search for open **pull requests** and **issues**; shows repo, author, labels, draft state, URLs, and derived **review status** for PRs.

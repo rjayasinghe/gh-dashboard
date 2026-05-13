@@ -15,9 +15,6 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: macOS
 
     steps:
       - uses: actions/checkout@v5
@@ -97,6 +94,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            macOS/GhDashboard.zip
-            macOS/GhDashboard.dmg
+            GhDashboard.zip
+            GhDashboard.dmg
           generate_release_notes: true
