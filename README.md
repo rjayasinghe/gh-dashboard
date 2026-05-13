@@ -155,24 +155,22 @@ include_labels = "ready for triage, needs review"
 ### Run directly with Swift
 
 ```sh
-cd macOS
 swift build
 swift run GhDashboard
 ```
 
-Or open `macOS/Package.swift` in Xcode for previews and the full IDE experience.
+Or open `Package.swift` in Xcode for previews and the full IDE experience.
 
 ### Build a .app bundle
 
 ```sh
-cd macOS
 ./build-app.sh
 ```
 
-This produces `macOS/GhDashboard.app` — ad-hoc signed and ready to run. To install:
+This produces `GhDashboard.app` at the repo root — ad-hoc signed and ready to run. To install:
 
 ```sh
-cp -r macOS/GhDashboard.app /Applications/
+cp -r GhDashboard.app /Applications/
 open /Applications/GhDashboard.app
 ```
 
@@ -196,7 +194,7 @@ After you approve it once, you can open the app normally (double-click) includin
 
 #### Optional (maintainers only): Developer ID and notarization
 
-To ship builds that pass Gatekeeper without the steps above, a maintainer would need an **Apple Developer Program** membership, **Developer ID** signing, and **notarization** in CI. Configure the **repository secrets** listed in **`macOS/scripts/sign-release-bundle.sh`** and `.github/workflows/release.yml` (`MACOS_CERTIFICATE_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, and either App Store Connect API key variables or `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`). If those secrets are **unset**, releases stay ad-hoc signed and end users rely on the **first launch** workaround.
+To ship builds that pass Gatekeeper without the steps above, a maintainer would need an **Apple Developer Program** membership, **Developer ID** signing, and **notarization** in CI. Configure the **repository secrets** listed in **`scripts/sign-release-bundle.sh`** and `.github/workflows/release.yml` (`MACOS_CERTIFICATE_BASE64`, `MACOS_CERTIFICATE_PASSWORD`, and either App Store Connect API key variables or `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`). If those secrets are **unset**, releases stay ad-hoc signed and end users rely on the **first launch** workaround.
 
 ## Local cache
 
@@ -215,7 +213,6 @@ loaded immediately for an instant UI before the first network request completes.
 ## Tests
 
 ```sh
-cd macOS
 swift run CoreTests
 ```
 
@@ -226,26 +223,28 @@ encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservatio
 ## Architecture
 
 ```
-└── macOS/
-    ├── Package.swift
-    ├── build-app.sh               # Assembles GhDashboard.app bundle
-    ├── Sources/
-    │   ├── GhDashboard/          # SwiftUI app (@main, views, view model)
-    │   │   ├── GhDashboardApp.swift
-    │   │   ├── DashboardViewModel.swift
-    │   │   └── Views/
-    │   │       ├── ContentView.swift
-    │   │       ├── SidebarView.swift
-    │   │       ├── ItemListView.swift
-    │   │       ├── ItemRow.swift
-    │   │       └── DetailView.swift
-    │   └── Core/                  # Shared library (testable)
-    │       ├── Config/            # TOML config loader
-    │       ├── Credentials/       # gh hosts.yml token reader
-    │       ├── GitHub/            # GraphQL client, models, Codable types
-    │       └── Persistence/       # SnapshotStore — local cache read/write
-    └── Tests/
-        └── CoreTests/             # Custom test runner (no Xcode required)
+.
+├── Package.swift
+├── build-app.sh               # Assembles GhDashboard.app bundle
+├── scripts/
+│   └── sign-release-bundle.sh # CI signing/notarization (optional)
+├── Sources/
+│   ├── GhDashboard/           # SwiftUI app (@main, views, view model)
+│   │   ├── GhDashboardApp.swift
+│   │   ├── DashboardViewModel.swift
+│   │   └── Views/
+│   │       ├── ContentView.swift
+│   │       ├── SidebarView.swift
+│   │       ├── ItemListView.swift
+│   │       ├── ItemRow.swift
+│   │       └── DetailView.swift
+│   └── Core/                  # Shared library (testable)
+│       ├── Config/            # TOML config loader
+│       ├── Credentials/       # gh hosts.yml token reader
+│       ├── GitHub/            # GraphQL client, models, Codable types
+│       └── Persistence/       # SnapshotStore — local cache read/write
+└── Tests/
+    └── CoreTests/             # Custom test runner (no Xcode required)
 ```
 
 ## Keyboard shortcuts
