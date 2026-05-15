@@ -135,7 +135,7 @@ public struct GraphQLClient: Sendable {
                         url: pr.url,
                         host: host,
                         repo: pr.repository.nameWithOwner,
-                        state: pr.state,
+                        state: IssueState(graphQLState: pr.state),
                         isDraft: pr.isDraft,
                         createdAt: pr.createdAt,
                         updatedAt: pr.updatedAt,
@@ -155,7 +155,7 @@ public struct GraphQLClient: Sendable {
                         url: issue.url,
                         host: host,
                         repo: issue.repository.nameWithOwner,
-                        state: issue.state,
+                        state: IssueState(graphQLState: issue.state),
                         isDraft: false,
                         createdAt: issue.createdAt,
                         updatedAt: issue.updatedAt,
@@ -163,7 +163,7 @@ public struct GraphQLClient: Sendable {
                         labels: issue.labels.nodes.map(\.name),
                         section: section,
                         comments: GraphQLMapping.commentsNewestFirst(issue.comments.nodes),
-                        reviewStatus: ""
+                        reviewStatus: nil
                     ))
                 case .unknown:
                     break
@@ -245,10 +245,8 @@ public enum GraphQLError: Error, LocalizedError {
 }
 
 enum GraphQLMapping {
-    static func deriveReviewStatus(_ nodes: [GQLReview]) -> String {
-        if nodes.contains(where: { $0.state == "CHANGES_REQUESTED" }) { return "changes_requested" }
-        if nodes.contains(where: { $0.state == "APPROVED" }) { return "approved" }
-        return "pending"
+    static func deriveReviewStatus(_ nodes: [GQLReview]) -> ReviewStatus {
+        ReviewStatus(graphQLReviewStates: nodes.map(\.state))
     }
 
     static func commentsNewestFirst(_ nodes: [GQLCommentNode]) -> [ItemComment] {
@@ -264,7 +262,7 @@ enum GraphQLMapping {
 }
 
 // Legacy entry points for tests.
-func deriveReviewStatus(_ nodes: [GQLReview]) -> String {
+func deriveReviewStatus(_ nodes: [GQLReview]) -> ReviewStatus {
     GraphQLMapping.deriveReviewStatus(nodes)
 }
 

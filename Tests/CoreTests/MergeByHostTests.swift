@@ -13,7 +13,7 @@ final class MergeByHostTests: XCTestCase {
                 url: "",
                 host: "hostA",
                 repo: "r",
-                state: "OPEN",
+                state: .open,
                 isDraft: false,
                 createdAt: .now,
                 updatedAt: .now,
@@ -21,7 +21,7 @@ final class MergeByHostTests: XCTestCase {
                 labels: [],
                 section: .myPRs,
                 comments: [],
-                reviewStatus: ""
+                reviewStatus: nil
             ),
             DashboardItem(
                 id: "b-pr-2",
@@ -31,7 +31,7 @@ final class MergeByHostTests: XCTestCase {
                 url: "",
                 host: "hostB",
                 repo: "r",
-                state: "OPEN",
+                state: .open,
                 isDraft: false,
                 createdAt: .now,
                 updatedAt: .now,
@@ -39,7 +39,7 @@ final class MergeByHostTests: XCTestCase {
                 labels: [],
                 section: .reviewNeeded,
                 comments: [],
-                reviewStatus: ""
+                reviewStatus: nil
             ),
         ]
 
@@ -52,7 +52,7 @@ final class MergeByHostTests: XCTestCase {
                 url: "",
                 host: "hostA",
                 repo: "r",
-                state: "OPEN",
+                state: .open,
                 isDraft: false,
                 createdAt: .now,
                 updatedAt: .now,
@@ -60,7 +60,7 @@ final class MergeByHostTests: XCTestCase {
                 labels: [],
                 section: .myPRs,
                 comments: [],
-                reviewStatus: ""
+                reviewStatus: nil
             ),
         ]
 
@@ -77,4 +77,3 @@ final class MergeByHostTests: XCTestCase {
         XCTAssertTrue(merged.contains(where: { $0.id == "b-pr-2" }))
     }
 }
-

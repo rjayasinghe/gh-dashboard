@@ -1,24 +1,14 @@
 import Foundation
-
-public struct PersistedSnapshot: Codable, Sendable {
-    public static let currentSchemaVersion = 1
-
-    public let schemaVersion: Int
-    public let items: [DashboardItem]
-    public let savedAt: Date
-
-    public init(items: [DashboardItem], savedAt: Date = Date()) {
-        self.schemaVersion = Self.currentSchemaVersion
-        self.items = items
-        self.savedAt = savedAt
-    }
-}
+import os
 
 public enum SnapshotStore {
+    private static let log = Logger(subsystem: "com.ghdashboard.app", category: "snapshot")
     private static let fileName = "snapshot.json"
 
     public static var directoryURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            fatalError("Application Support directory unavailable")
+        }
         return appSupport.appendingPathComponent("GhDashboard", isDirectory: true)
     }
 
@@ -31,12 +21,22 @@ public enum SnapshotStore {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
             let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let snapshot = try decoder.decode(PersistedSnapshot.self, from: data)
-            guard snapshot.schemaVersion <= PersistedSnapshot.currentSchemaVersion else { return nil }
-            return snapshot
+            if let current = try? JSONCoding.decoder().decode(PersistedSnapshot.self, from: data) {
+                guard current.schemaVersion <= PersistedSnapshot.currentSchemaVersion else {
+                    log.warning("Snapshot schema \(current.schemaVersion) is newer than supported; ignoring cache")
+                    return nil
+                }
+                return current
+            }
+            if let migrated = SnapshotMigration.migrateV1Data(data) {
+                log.info("Migrated snapshot from schema v1 to v\(PersistedSnapshot.currentSchemaVersion)")
+                save(migrated)
+                return migrated
+            }
+            log.error("Failed to decode snapshot at \(url.path, privacy: .public)")
+            return nil
         } catch {
+            log.error("Snapshot load failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
@@ -45,8 +45,7 @@ public enum SnapshotStore {
         let dir = directoryURL
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
+            let encoder = JSONCoding.encoder()
             encoder.outputFormatting = [.sortedKeys]
             let data = try encoder.encode(snapshot)
 
@@ -60,7 +59,7 @@ public enum SnapshotStore {
                 try FileManager.default.moveItem(at: tmp, to: dest)
             }
         } catch {
-            // Persist is best-effort; app continues normally without cache.
+            log.error("Snapshot save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

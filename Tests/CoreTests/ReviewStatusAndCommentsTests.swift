@@ -7,24 +7,23 @@ final class ReviewStatusAndCommentsTests: XCTestCase {
     func testChangesRequestedTakesPriorityOverApproved() {
         XCTAssertEqual(
             deriveReviewStatus([GQLReview(state: "APPROVED"), GQLReview(state: "CHANGES_REQUESTED")]),
-            "changes_requested",
-            "changes_requested takes priority over approved"
+            .changesRequested
         )
     }
 
     func testApprovedWhenNoChangesRequested() {
         XCTAssertEqual(
             deriveReviewStatus([GQLReview(state: "APPROVED"), GQLReview(state: "COMMENTED")]),
-            "approved"
+            .approved
         )
     }
 
     func testPendingWhenEmpty() {
-        XCTAssertEqual(deriveReviewStatus([]), "pending")
+        XCTAssertEqual(deriveReviewStatus([]), .pending)
     }
 
     func testPendingWithOnlyCommented() {
-        XCTAssertEqual(deriveReviewStatus([GQLReview(state: "COMMENTED")]), "pending")
+        XCTAssertEqual(deriveReviewStatus([GQLReview(state: "COMMENTED")]), .pending)
     }
 
     func testNewestFirstCommentOrdering() {
@@ -33,6 +32,7 @@ final class ReviewStatusAndCommentsTests: XCTestCase {
         let ordered = commentsNewestFirst([old, new])
         XCTAssertEqual(ordered.count, 2)
         XCTAssertEqual(ordered[0].author, "b")
+        XCTAssertEqual(ordered[0].id, "2")
         XCTAssertEqual(ordered[1].author, "a")
     }
 
@@ -40,4 +40,3 @@ final class ReviewStatusAndCommentsTests: XCTestCase {
         XCTAssertTrue(commentsNewestFirst([]).isEmpty)
     }
 }
-
