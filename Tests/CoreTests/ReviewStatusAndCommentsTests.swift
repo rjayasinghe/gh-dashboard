@@ -28,8 +28,8 @@ final class ReviewStatusAndCommentsTests: XCTestCase {
     }
 
     func testNewestFirstCommentOrdering() {
-        let old = GQLCommentNode(author: GQLActor(login: "a"), body: "old", createdAt: Date(timeIntervalSince1970: 100))
-        let new = GQLCommentNode(author: GQLActor(login: "b"), body: "new", createdAt: Date(timeIntervalSince1970: 200))
+        let old = GQLCommentNode(id: "1", author: GQLActor(login: "a"), body: "old", createdAt: Date(timeIntervalSince1970: 100))
+        let new = GQLCommentNode(id: "2", author: GQLActor(login: "b"), body: "new", createdAt: Date(timeIntervalSince1970: 200))
         let ordered = commentsNewestFirst([old, new])
         XCTAssertEqual(ordered.count, 2)
         XCTAssertEqual(ordered[0].author, "b")

@@ -31,10 +31,17 @@ public enum DashboardSection: Int, Sendable, CaseIterable, Identifiable, Hashabl
 }
 
 public struct ItemComment: Sendable, Hashable, Codable, Identifiable {
-    public var id: String { "\(author)-\(createdAt.timeIntervalSince1970)" }
+    public let id: String
     public let author: String
     public let body: String
     public let createdAt: Date
+
+    public init(id: String, author: String, body: String, createdAt: Date) {
+        self.id = id
+        self.author = author
+        self.body = body
+        self.createdAt = createdAt
+    }
 }
 
 public struct DashboardItem: Sendable, Identifiable, Hashable, Codable {

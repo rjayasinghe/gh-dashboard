@@ -26,8 +26,8 @@ final class GraphQLDecodingTests: XCTestCase {
                   "reviews": { "nodes": [{ "state": "APPROVED" }, { "state": "CHANGES_REQUESTED" }] },
                   "comments": {
                     "nodes": [
-                      { "author": { "login": "bob" }, "body": "Looks good", "createdAt": "2025-12-01T12:00:00Z" },
-                      { "author": { "login": "carol" }, "body": "One nit", "createdAt": "2025-12-02T09:00:00Z" }
+              { "id": "PRRC_1", "author": { "login": "bob" }, "body": "Looks good", "createdAt": "2025-12-01T12:00:00Z" },
+              { "id": "PRRC_2", "author": { "login": "carol" }, "body": "One nit", "createdAt": "2025-12-02T09:00:00Z" }
                     ]
                   }
                 },

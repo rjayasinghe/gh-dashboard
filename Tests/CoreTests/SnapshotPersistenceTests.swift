@@ -5,7 +5,7 @@ import XCTest
 
 final class SnapshotPersistenceTests: XCTestCase {
     func testPersistedSnapshotEncodesDecodesRoundTrip() throws {
-        let comment = ItemComment(author: "bob", body: "lgtm", createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+        let comment = ItemComment(id: "IC_1", author: "bob", body: "lgtm", createdAt: Date(timeIntervalSince1970: 1_700_000_000))
         let item = DashboardItem(
             id: "gh-pr-org/repo-7",
             number: 7,

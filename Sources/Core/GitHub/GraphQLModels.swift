@@ -1,7 +1,12 @@
 import Foundation
 
 struct GQLSearchResponse: Decodable {
-    let data: GQLData
+    let data: GQLData?
+    let errors: [GQLErrorMessage]?
+}
+
+struct GQLErrorMessage: Decodable {
+    let message: String
 }
 
 struct GQLData: Decodable {
@@ -101,6 +106,7 @@ struct GQLCommentConnection: Decodable {
 }
 
 struct GQLCommentNode: Decodable {
+    let id: String
     let author: GQLActor?
     let body: String
     let createdAt: Date

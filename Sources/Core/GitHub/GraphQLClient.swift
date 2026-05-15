@@ -3,10 +3,12 @@ import Foundation
 public struct GraphQLClient: Sendable {
     public let host: String
     private let token: String
+    private let transport: URLSessionTransport
 
-    public init(host: String, token: String) {
+    public init(host: String, token: String, transport: URLSessionTransport = URLSessionTransport()) {
         self.host = host
         self.token = token
+        self.transport = transport
     }
 
     private var endpointURL: URL {
@@ -34,7 +36,7 @@ public struct GraphQLClient: Sendable {
             labels(first: 10) { nodes { name } }
             repository { nameWithOwner }
             reviews(last: 10) { nodes { state } }
-            comments(last: 50) { nodes { author { login } body createdAt } }
+            comments(last: 50) { nodes { id author { login } body createdAt } }
           }
           ... on Issue {
             number
@@ -47,7 +49,7 @@ public struct GraphQLClient: Sendable {
             author { login }
             labels(first: 10) { nodes { name } }
             repository { nameWithOwner }
-            comments(last: 50) { nodes { author { login } body createdAt } }
+            comments(last: 50) { nodes { id author { login } body createdAt } }
           }
         }
         pageInfo { hasNextPage endCursor }
@@ -60,6 +62,9 @@ public struct GraphQLClient: Sendable {
         ("is:pr is:open review-requested:@me archived:false", .reviewNeeded),
         ("is:issue is:open assignee:@me archived:false", .myIssues),
     ]
+
+    private static let requestTimeout: TimeInterval = 60
+    private static let maxAttempts = 3
 
     public func fetchAll(myDoDIssues: MyDoDIssuesSettings?, issueQueue: IssueQueueSettings?) async throws -> [DashboardItem] {
         var allItems: [DashboardItem] = []
@@ -83,7 +88,7 @@ public struct GraphQLClient: Sendable {
 
     private func fetchSection(searchString: String, section: DashboardSection) async throws -> [DashboardItem] {
         var items: [DashboardItem] = []
-        var cursor: String? = nil
+        var cursor: String?
 
         while true {
             var variables: [String: Any] = [
@@ -99,21 +104,27 @@ public struct GraphQLClient: Sendable {
 
             var request = URLRequest(url: endpointURL)
             request.httpMethod = "POST"
+            request.timeoutInterval = Self.requestTimeout
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                let bodyStr = String(data: data, encoding: .utf8) ?? ""
-                throw GraphQLError.httpError(status: http.statusCode, body: bodyStr)
+            let data = try await performRequest(request)
+
+            let gql = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: data)
+            if let errors = gql.errors, !errors.isEmpty {
+                let messages = errors.map(\.message).joined(separator: "; ")
+                if gql.data == nil {
+                    throw GraphQLError.queryErrors(messages)
+                }
+            }
+            guard let search = gql.data?.search else {
+                throw GraphQLError.missingData
             }
 
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let gql = try decoder.decode(GQLSearchResponse.self, from: data)
-
-            for node in gql.data.search.nodes {
+            for node in search.nodes {
                 switch node {
                 case .pullRequest(let pr):
                     items.append(DashboardItem(
@@ -131,8 +142,8 @@ public struct GraphQLClient: Sendable {
                         author: pr.author?.login ?? "",
                         labels: pr.labels.nodes.map(\.name),
                         section: section,
-                        comments: commentsNewestFirst(pr.comments.nodes),
-                        reviewStatus: deriveReviewStatus(pr.reviews.nodes)
+                        comments: GraphQLMapping.commentsNewestFirst(pr.comments.nodes),
+                        reviewStatus: GraphQLMapping.deriveReviewStatus(pr.reviews.nodes)
                     ))
                 case .issue(let issue):
                     let issueIdTag = (section == .issueQueue) ? "issue-queue" : "issue"
@@ -151,7 +162,7 @@ public struct GraphQLClient: Sendable {
                         author: issue.author?.login ?? "",
                         labels: issue.labels.nodes.map(\.name),
                         section: section,
-                        comments: commentsNewestFirst(issue.comments.nodes),
+                        comments: GraphQLMapping.commentsNewestFirst(issue.comments.nodes),
                         reviewStatus: ""
                     ))
                 case .unknown:
@@ -159,33 +170,104 @@ public struct GraphQLClient: Sendable {
                 }
             }
 
-            if !gql.data.search.pageInfo.hasNextPage { break }
-            cursor = gql.data.search.pageInfo.endCursor
+            if !search.pageInfo.hasNextPage { break }
+            cursor = search.pageInfo.endCursor
         }
 
         return items
+    }
+
+    private func performRequest(_ request: URLRequest) async throws -> Data {
+        var lastError: Error?
+        for attempt in 0..<Self.maxAttempts {
+            do {
+                let (data, response) = try await transport.data(for: request)
+                guard let http = response as? HTTPURLResponse else {
+                    throw GraphQLError.invalidResponse
+                }
+                if (200...299).contains(http.statusCode) {
+                    return data
+                }
+                let bodyStr = String(data: data, encoding: .utf8) ?? ""
+                let error = GraphQLError.httpError(status: http.statusCode, body: bodyStr)
+                if Self.shouldRetry(status: http.statusCode), attempt < Self.maxAttempts - 1 {
+                    try await Task.sleep(for: .milliseconds(250 * (1 << attempt)))
+                    continue
+                }
+                throw error
+            } catch let error as GraphQLError {
+                throw error
+            } catch {
+                lastError = error
+                if Self.shouldRetry(error: error), attempt < Self.maxAttempts - 1 {
+                    try await Task.sleep(for: .milliseconds(250 * (1 << attempt)))
+                    continue
+                }
+                throw error
+            }
+        }
+        throw lastError ?? GraphQLError.invalidResponse
+    }
+
+    private static func shouldRetry(status: Int) -> Bool {
+        status == 429 || status == 502 || status == 503
+    }
+
+    private static func shouldRetry(error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .timedOut, .networkConnectionLost, .cannotConnectToHost, .notConnectedToInternet:
+            return true
+        default:
+            return false
+        }
     }
 }
 
 public enum GraphQLError: Error, LocalizedError {
     case httpError(status: Int, body: String)
+    case queryErrors(String)
+    case missingData
+    case invalidResponse
 
     public var errorDescription: String? {
         switch self {
         case .httpError(let status, let body):
             "HTTP \(status): \(body.prefix(200))"
+        case .queryErrors(let messages):
+            "GraphQL errors: \(messages.prefix(200))"
+        case .missingData:
+            "GraphQL response missing data"
+        case .invalidResponse:
+            "Invalid HTTP response"
         }
     }
 }
 
+enum GraphQLMapping {
+    static func deriveReviewStatus(_ nodes: [GQLReview]) -> String {
+        if nodes.contains(where: { $0.state == "CHANGES_REQUESTED" }) { return "changes_requested" }
+        if nodes.contains(where: { $0.state == "APPROVED" }) { return "approved" }
+        return "pending"
+    }
+
+    static func commentsNewestFirst(_ nodes: [GQLCommentNode]) -> [ItemComment] {
+        nodes.reversed().map {
+            ItemComment(
+                id: $0.id,
+                author: $0.author?.login ?? "",
+                body: $0.body,
+                createdAt: $0.createdAt
+            )
+        }
+    }
+}
+
+// Legacy entry points for tests.
 func deriveReviewStatus(_ nodes: [GQLReview]) -> String {
-    if nodes.contains(where: { $0.state == "CHANGES_REQUESTED" }) { return "changes_requested" }
-    if nodes.contains(where: { $0.state == "APPROVED" }) { return "approved" }
-    return "pending"
+    GraphQLMapping.deriveReviewStatus(nodes)
 }
 
 func commentsNewestFirst(_ nodes: [GQLCommentNode]) -> [ItemComment] {
-    nodes.reversed().map {
-        ItemComment(author: $0.author?.login ?? "", body: $0.body, createdAt: $0.createdAt)
-    }
+    GraphQLMapping.commentsNewestFirst(nodes)
 }
