@@ -3,7 +3,7 @@ import Foundation
 /// Shared minimal TOML helpers for `config.toml` section scanning.
 enum TomlConfigParsing {
     static func stripTomlString(_ raw: String) -> String? {
-        var s = raw.trimmingCharacters(in: .whitespaces)
+        let s = raw.trimmingCharacters(in: .whitespaces)
         if s.hasPrefix("\""), s.hasSuffix("\""), s.count >= 2 {
             return String(s.dropFirst().dropLast())
         }
@@ -101,8 +101,8 @@ enum TomlConfigParsing {
     }
 
     static func hasSection(_ name: String, in toml: String) -> Bool {
-        toml.contains { line in
-            line.trimmingCharacters(in: .whitespaces) == "[\(name)]"
+        toml.components(separatedBy: .newlines).contains {
+            $0.trimmingCharacters(in: .whitespaces) == "[\(name)]"
         }
     }
 }
