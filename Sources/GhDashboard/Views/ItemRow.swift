@@ -61,10 +61,10 @@ struct ItemRow: View {
 
     private var reviewColor: Color {
         switch item.reviewStatus {
-        case "approved": .green
-        case "changes_requested": .red
-        case "pending": .yellow
-        default: .secondary
+        case .approved: .green
+        case .changesRequested: .red
+        case .pending: .yellow
+        case nil: .secondary
         }
     }
 }

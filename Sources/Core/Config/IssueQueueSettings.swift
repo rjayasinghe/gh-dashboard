@@ -28,15 +28,14 @@ public struct IssueQueueSettings: Sendable, Equatable {
             "no:assignee",
             "archived:false",
         ]
-        if trimmed.count == 1 {
-            let inner = trimmed[0].replacingOccurrences(of: "\"", with: "")
-            parts.append("label:\"\(inner)\"")
+        let labelClauses = trimmed.map { label in
+            let inner = label.replacingOccurrences(of: "\"", with: "")
+            return "label:\"\(inner)\""
+        }
+        if labelClauses.count == 1 {
+            parts.append(labelClauses[0])
         } else {
-            let labelOr = trimmed.map { label in
-                let inner = label.replacingOccurrences(of: "\"", with: "")
-                return "label:\"\(inner)\""
-            }.joined(separator: " OR ")
-            parts.append("(\(labelOr))")
+            parts.append("(\(labelClauses.joined(separator: " OR ")))")
         }
         return parts.joined(separator: " ")
     }
@@ -44,61 +43,15 @@ public struct IssueQueueSettings: Sendable, Equatable {
     /// Parses `[issue_queue]` from TOML. Returns `nil` if the section is missing or **`host`**, **`repository`**,
     /// or **`include_labels`** (after parsing) is empty.
     public static func parse(fromToml toml: String) -> IssueQueueSettings? {
-        var hasSection = false
-        var result = IssueQueueSettings(host: "", repository: "", includeLabels: [])
-        var inSection = false
+        guard TomlConfigParsing.hasSection("issue_queue", in: toml) else { return nil }
 
-        for rawLine in toml.components(separatedBy: .newlines) {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("#") { continue }
+        let kv = TomlConfigParsing.keyValues(inSection: "issue_queue", from: toml)
+        let host = (kv["host"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let repo = (kv["repository"] ?? kv["repo"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let includeRaw = kv["include_labels"] ?? kv["includeLabels"] ?? kv["include_label"] ?? kv["includeLabel"] ?? ""
+        let includeLabels = TomlConfigParsing.parseCommaSeparatedLabels(includeRaw)
 
-            if line == "[issue_queue]" {
-                hasSection = true
-                inSection = true
-                continue
-            }
-            if line.hasPrefix("[") && line.hasSuffix("]") {
-                inSection = false
-                continue
-            }
-            guard inSection, let eq = line.firstIndex(of: "=") else { continue }
-
-            let key = String(line[..<eq]).trimmingCharacters(in: .whitespaces)
-            let valueRaw = String(line[line.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
-            guard let value = Self.stripTomlString(valueRaw), !value.isEmpty else { continue }
-
-            switch key {
-            case "host":
-                result = IssueQueueSettings(host: value, repository: result.repository, includeLabels: result.includeLabels)
-            case "repository", "repo":
-                result = IssueQueueSettings(host: result.host, repository: value, includeLabels: result.includeLabels)
-            case "include_labels", "includeLabels", "include_label", "includeLabel":
-                result = IssueQueueSettings(
-                    host: result.host,
-                    repository: result.repository,
-                    includeLabels: MyDoDIssuesSettings.parseCommaSeparatedLabels(value)
-                )
-            default: break
-            }
-        }
-
-        guard hasSection else { return nil }
-        let host = result.host.trimmingCharacters(in: .whitespacesAndNewlines)
-        let repo = result.repository.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !host.isEmpty, !repo.isEmpty, !result.includeLabels.isEmpty else { return nil }
-        return IssueQueueSettings(host: host, repository: repo, includeLabels: result.includeLabels)
-    }
-
-    private static func stripTomlString(_ raw: String) -> String? {
-        var s = raw
-        if s.hasPrefix("\""), s.hasSuffix("\""), s.count >= 2 {
-            s = String(s.dropFirst().dropLast())
-            return s
-        }
-        if s.hasPrefix("'"), s.hasSuffix("'"), s.count >= 2 {
-            s = String(s.dropFirst().dropLast())
-            return s
-        }
-        return s
+        guard !host.isEmpty, !repo.isEmpty, !includeLabels.isEmpty else { return nil }
+        return IssueQueueSettings(host: host, repository: repo, includeLabels: includeLabels)
     }
 }

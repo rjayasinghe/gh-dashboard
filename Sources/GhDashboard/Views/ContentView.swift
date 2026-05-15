@@ -3,6 +3,7 @@ import Core
 
 struct ContentView: View {
     @Bindable var viewModel: DashboardViewModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationSplitView {
@@ -35,6 +36,9 @@ struct ContentView: View {
                     .help("Open in browser")
                 }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            viewModel.setRefreshPaused(phase != .active)
         }
         .task {
             await viewModel.startPeriodicRefresh()
