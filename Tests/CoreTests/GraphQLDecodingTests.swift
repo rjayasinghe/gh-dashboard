@@ -53,11 +53,12 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let response = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(fixture.utf8))
+        let data = try XCTUnwrap(response.data)
 
-        XCTAssertEqual(response.data.search.nodes.count, 2)
-        XCTAssertEqual(response.data.search.pageInfo.hasNextPage, false)
+        XCTAssertEqual(data.search.nodes.count, 2)
+        XCTAssertEqual(data.search.pageInfo.hasNextPage, false)
 
-        switch response.data.search.nodes[0] {
+        switch data.search.nodes[0] {
         case .pullRequest(let pr):
             XCTAssertEqual(pr.number, 42)
             XCTAssertEqual(pr.title, "Fix widget alignment")
@@ -71,7 +72,7 @@ final class GraphQLDecodingTests: XCTestCase {
             XCTFail("Expected PullRequest at index 0")
         }
 
-        switch response.data.search.nodes[1] {
+        switch data.search.nodes[1] {
         case .issue(let issue):
             XCTAssertEqual(issue.number, 99)
             XCTAssertEqual(issue.title, "Track performance regression")
@@ -95,8 +96,9 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let r = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(json.utf8))
-        XCTAssertEqual(r.data.search.pageInfo.hasNextPage, true)
-        XCTAssertEqual(r.data.search.pageInfo.endCursor, "Y3Vyc29yOnYyOg==")
+        let data = try XCTUnwrap(r.data)
+        XCTAssertEqual(data.search.pageInfo.hasNextPage, true)
+        XCTAssertEqual(data.search.pageInfo.endCursor, "Y3Vyc29yOnYyOg==")
     }
 
     func testDecodesUnknownTypenameAsUnknown() throws {
@@ -112,7 +114,8 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let r = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(json.utf8))
-        guard case .unknown = r.data.search.nodes[0] else {
+        let data = try XCTUnwrap(r.data)
+        guard case .unknown = data.search.nodes[0] else {
             return XCTFail("Expected .unknown for Discussion")
         }
     }
