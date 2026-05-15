@@ -19,4 +19,4 @@ jobs:
         run: swift build --product GhDashboard
 
       - name: Test
-        run: swift run CoreTests
+        run: swift test

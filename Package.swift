@@ -19,7 +19,7 @@ let package = Package(
             dependencies: ["Yams"],
             path: "Sources/Core"
         ),
-        .executableTarget(
+        .testTarget(
             name: "CoreTests",
             dependencies: ["Core"],
             path: "Tests/CoreTests"
