@@ -12,7 +12,7 @@ let package = Package(
             name: "GhDashboard",
             dependencies: ["Core"],
             path: "Sources/GhDashboard",
-            exclude: ["Resources"]
+            exclude: ["Resources", "Resources/Info.plist.template"]
         ),
         .target(
             name: "Core",
