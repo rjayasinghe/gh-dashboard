@@ -1,8 +1,11 @@
 import Foundation
 import Security
 import Yams
+import os
 
 public enum CredentialStore {
+    private static let log = Logger(subsystem: "com.ghdashboard.app", category: "credentials")
+
     /// Reads the OAuth token for a GitHub host.
     ///
     /// Lookup order (mirrors `go-gh` / `gh` CLI behavior):
@@ -10,6 +13,10 @@ public enum CredentialStore {
     ///    with service `gh:<host>` (e.g. `gh:github.com`).
     /// 2. `~/.config/gh/hosts.yml` — the `oauth_token` field, used
     ///    when `gh` is configured with `GH_TOKEN` or plain-text storage.
+    ///
+    /// The `security` CLI fallback requires a non-sandboxed app and is incompatible
+    /// with Mac App Store distribution; it exists because `gh`'s keychain ACL may
+    /// deny direct Security-framework access from this binary.
     public static func token(forHost host: String) -> String? {
         if let token = keychainToken(forHost: host) {
             return token
@@ -22,12 +29,10 @@ public enum CredentialStore {
     private static let goKeyringPrefix = "go-keyring-base64:"
 
     private static func keychainToken(forHost host: String) -> String? {
-        // Try Security framework first (works when ACL allows this binary).
         if let raw = keychainTokenViaAPI(forHost: host) {
             return decodeGoKeyring(raw)
         }
-        // Fallback: shell out to `security` which runs under the user's
-        // login session and always has ACL access to their own keychain.
+        log.debug("Keychain API denied for gh:\(host, privacy: .public); trying security CLI fallback")
         if let raw = keychainTokenViaCLI(forHost: host) {
             return decodeGoKeyring(raw)
         }
@@ -70,12 +75,12 @@ public enum CredentialStore {
             guard let raw, !raw.isEmpty else { return nil }
             return raw
         } catch {
+            log.error("security CLI failed for gh:\(host, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
 
     private static func decodeGoKeyring(_ raw: String) -> String? {
-        // go-keyring (used by gh) stores tokens as "go-keyring-base64:<base64>"
         if raw.hasPrefix(goKeyringPrefix) {
             let b64 = String(raw.dropFirst(goKeyringPrefix.count))
             guard let decoded = Data(base64Encoded: b64),
@@ -89,42 +94,46 @@ public enum CredentialStore {
     // MARK: - hosts.yml fallback
 
     private static func hostsYmlToken(forHost host: String) -> String? {
-        let paths = possibleHostsPaths()
-        for path in paths {
-            if let token = readYmlToken(from: path, host: host) {
+        for url in possibleHostsURLs() {
+            if let token = readYmlToken(from: url, host: host) {
                 return token
             }
         }
         return nil
     }
 
-    private static func possibleHostsPaths() -> [String] {
-        var paths: [String] = []
+    private static func possibleHostsURLs() -> [URL] {
+        var urls: [URL] = []
 
         if let ghConfigDir = ProcessInfo.processInfo.environment["GH_CONFIG_DIR"] {
-            paths.append((ghConfigDir as NSString).appendingPathComponent("hosts.yml"))
+            urls.append(URL(fileURLWithPath: ghConfigDir).appending(path: "hosts.yml"))
         }
 
         if let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"] {
-            paths.append((xdg as NSString).appendingPathComponent("gh/hosts.yml"))
+            urls.append(URL(fileURLWithPath: xdg).appending(path: "gh/hosts.yml"))
         }
 
-        let home = NSHomeDirectory()
-        paths.append((home as NSString).appendingPathComponent(".config/gh/hosts.yml"))
+        urls.append(
+            FileManager.default.homeDirectoryForCurrentUser
+                .appending(path: ".config/gh/hosts.yml")
+        )
 
-        return paths
+        return urls
     }
 
-    private static func readYmlToken(from path: String, host: String) -> String? {
-        guard FileManager.default.fileExists(atPath: path),
-              let contents = try? String(contentsOfFile: path, encoding: .utf8),
-              let parsed = try? Yams.load(yaml: contents) as? [String: Any],
-              let hostEntry = parsed[host] as? [String: Any]
-        else { return nil }
-
-        if let token = hostEntry["oauth_token"] as? String, !token.isEmpty {
+    private static func readYmlToken(from url: URL, host: String) -> String? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            guard let parsed = try Yams.load(yaml: contents) as? [String: Any],
+                  let hostEntry = parsed[host] as? [String: Any],
+                  let token = hostEntry["oauth_token"] as? String,
+                  !token.isEmpty
+            else { return nil }
             return token
+        } catch {
+            log.error("Failed to read hosts.yml at \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
         }
-        return nil
     }
 }

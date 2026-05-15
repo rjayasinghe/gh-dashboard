@@ -17,6 +17,24 @@ final class DashboardViewModel {
     private var issueQueueSettings: IssueQueueSettings?
     private var credentials: [String: String] = [:]
     private let refreshInterval: TimeInterval = 300
+    private var refreshPaused = false
+
+    private let configLoader: any ConfigLoading
+    private let credentialProvider: any CredentialProviding
+    private let snapshotStore: any SnapshotPersisting
+    private let itemFetcher: any ItemFetching
+
+    init(
+        configLoader: any ConfigLoading = LiveConfigLoader(),
+        credentialProvider: any CredentialProviding = LiveCredentialProvider(),
+        snapshotStore: any SnapshotPersisting = LiveSnapshotStore(),
+        itemFetcher: any ItemFetching = LiveItemFetcher()
+    ) {
+        self.configLoader = configLoader
+        self.credentialProvider = credentialProvider
+        self.snapshotStore = snapshotStore
+        self.itemFetcher = itemFetcher
+    }
 
     /// Sidebar rows; omits optional tabs when their TOML blocks are missing or incomplete.
     var visibleSections: [DashboardSection] {
@@ -46,7 +64,10 @@ final class DashboardViewModel {
             if dict[item.host] == nil { order.append(item.host) }
             dict[item.host, default: []].append(item)
         }
-        return order.map { ($0, dict[$0]!) }
+        return order.compactMap { host in
+            guard let items = dict[host] else { return nil }
+            return (host, items)
+        }
     }
 
     func sectionCount(_ sec: DashboardSection) -> Int {
@@ -55,7 +76,7 @@ final class DashboardViewModel {
 
     func loadConfig() {
         do {
-            let cfg = try ConfigLoader.load()
+            let cfg = try configLoader.loadConfig()
             hosts = cfg.hosts
             myDoDIssuesSettings = cfg.myDoDIssues
             issueQueueSettings = cfg.issueQueue
@@ -69,18 +90,22 @@ final class DashboardViewModel {
         normalizeSectionAndSelectionForOptionalTabs()
     }
 
-    func loadCredentials() {
+    func loadCredentials() async {
+        var loaded: [String: String] = [:]
+        var errors: [String: String] = [:]
         for host in hosts {
-            if let token = CredentialStore.token(forHost: host) {
-                credentials[host] = token
+            if let token = await credentialProvider.token(forHost: host) {
+                loaded[host] = token
             } else {
-                errorsByHost[host] = "No token found. Run: gh auth login --hostname \(host)"
+                errors[host] = "No token found. Run: gh auth login --hostname \(host)"
             }
         }
+        credentials = loaded
+        errorsByHost = errors
     }
 
     func loadCache() {
-        guard let snapshot = SnapshotStore.load() else { return }
+        guard let snapshot = snapshotStore.load() else { return }
         var loaded = snapshot.items
         if myDoDIssuesSettings == nil {
             loaded.removeAll { $0.section == .myDoDIssues }
@@ -91,6 +116,10 @@ final class DashboardViewModel {
         items = loaded
         lastFetch = snapshot.savedAt
         normalizeSectionAndSelectionForOptionalTabs()
+    }
+
+    func setRefreshPaused(_ paused: Bool) {
+        refreshPaused = paused
     }
 
     private func normalizeSectionAndSelectionForOptionalTabs() {
@@ -130,7 +159,6 @@ final class DashboardViewModel {
                     newErrors[host] = "No token"
                     continue
                 }
-                let client = GraphQLClient(host: host, token: token)
                 let dodForHost: MyDoDIssuesSettings? = {
                     guard let dod = dodSnapshot else { return nil }
                     guard hostsSnapshot.contains(dod.host), dod.host == host else { return nil }
@@ -143,7 +171,12 @@ final class DashboardViewModel {
                 }()
                 group.addTask {
                     do {
-                        let items = try await client.fetchAll(myDoDIssues: dodForHost, issueQueue: queueForHost)
+                        let items = try await self.itemFetcher.fetchItems(
+                            host: host,
+                            token: token,
+                            myDoDIssues: dodForHost,
+                            issueQueue: queueForHost
+                        )
                         return (host, .success(items))
                     } catch {
                         return (host, .failure(error))
@@ -161,7 +194,6 @@ final class DashboardViewModel {
             }
         }
 
-        // Merge: keep cached items for hosts that failed; replace with fresh data for hosts that succeeded.
         var merged = fetchedItems
         for item in previousItems where !successfulHosts.contains(item.host) {
             merged.append(item)
@@ -185,18 +217,19 @@ final class DashboardViewModel {
         lastFetch = Date()
         normalizeSectionAndSelectionForOptionalTabs()
 
-        SnapshotStore.save(PersistedSnapshot(items: merged))
+        snapshotStore.save(PersistedSnapshot(items: merged))
     }
 
     func startPeriodicRefresh() async {
         loadConfig()
-        loadCredentials()
+        await loadCredentials()
         loadCache()
         await Task.yield()
         await refresh()
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(refreshInterval))
             guard !Task.isCancelled else { break }
+            guard !refreshPaused else { continue }
             await refresh()
         }
     }
