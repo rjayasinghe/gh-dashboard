@@ -14,72 +14,17 @@ public enum ConfigLoader {
     public static func load(path: String = defaultPath) throws -> AppConfig {
         let expanded = (path as NSString).expandingTildeInPath
         let url = URL(fileURLWithPath: expanded)
-        guard FileManager.default.fileExists(atPath: expanded) else {
+        guard FileManager.default.fileExists(atPath: url.path) else {
             throw ConfigError.notFound(expanded)
         }
         let contents = try String(contentsOf: url, encoding: .utf8)
-        let hosts = parseHosts(from: contents)
+        let hosts = TomlConfigParsing.parseGitHubHosts(from: contents)
         guard !hosts.isEmpty else {
             throw ConfigError.noHosts(expanded)
         }
         let myDoDIssues = MyDoDIssuesSettings.parse(fromToml: contents)
         let issueQueue = IssueQueueSettings.parse(fromToml: contents)
         return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues, issueQueue: issueQueue)
-    }
-
-    private static func parseHosts(from toml: String) -> [String] {
-        // Minimal TOML parser: extract hosts = ["...", "..."] from [github] section.
-        var inGithub = false
-        var inArray = false
-        var hosts: [String] = []
-
-        for rawLine in toml.components(separatedBy: .newlines) {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("#") { continue }
-
-            if line == "[github]" {
-                inGithub = true
-                continue
-            }
-            if line.hasPrefix("[") && line.hasSuffix("]") {
-                inGithub = false
-                inArray = false
-                continue
-            }
-
-            guard inGithub else { continue }
-
-            if line.hasPrefix("hosts") && line.contains("=") {
-                inArray = true
-            }
-            if inArray {
-                for match in extractQuotedStrings(line) {
-                    let stripped = match
-                        .trimmingCharacters(in: .whitespaces)
-                    if !stripped.isEmpty { hosts.append(stripped) }
-                }
-                if line.contains("]") { inArray = false }
-            }
-        }
-        return hosts
-    }
-
-    private static func extractQuotedStrings(_ line: String) -> [String] {
-        var results: [String] = []
-        var inQuote = false
-        var current = ""
-        for ch in line {
-            if ch == "\"" {
-                if inQuote {
-                    results.append(current)
-                    current = ""
-                }
-                inQuote.toggle()
-            } else if inQuote {
-                current.append(ch)
-            }
-        }
-        return results
     }
 }
 
