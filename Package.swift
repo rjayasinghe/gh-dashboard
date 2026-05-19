@@ -24,5 +24,10 @@ let package = Package(
             dependencies: ["Core"],
             path: "Tests/CoreTests"
         ),
+        .testTarget(
+            name: "GhDashboardTests",
+            dependencies: ["GhDashboard", "Core"],
+            path: "Tests/GhDashboardTests"
+        ),
     ]
 )
