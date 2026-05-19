@@ -7,6 +7,9 @@ final class DashboardViewModel {
     var section: DashboardSection = .myPRs
     var items: [DashboardItem] = []
     var selectedItemID: DashboardItem.ID?
+    var searchQuery = ""
+    /// Incremented by ⌘⇧F so `ItemSearchField` can request focus (testable without SwiftUI).
+    var searchFocusRequest = 0
     var errorsByHost: [String: String] = [:]
     var isLoading = false
     var lastFetch: Date?
@@ -72,6 +75,20 @@ final class DashboardViewModel {
 
     func sectionCount(_ sec: DashboardSection) -> Int {
         items.filter { $0.section == sec }.count
+    }
+
+    var searchResults: [DashboardItem] {
+        DashboardItemSearch.search(
+            items: items,
+            visibleSections: visibleSections,
+            query: searchQuery
+        )
+    }
+
+    func selectSearchResult(_ item: DashboardItem) {
+        section = item.section
+        selectedItemID = item.id
+        searchQuery = ""
     }
 
     func loadConfig() {

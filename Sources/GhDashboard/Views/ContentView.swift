@@ -15,6 +15,9 @@ struct ContentView: View {
             DetailView(item: viewModel.selectedItem)
         }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                ItemSearchField(viewModel: viewModel)
+            }
             ToolbarItemGroup(placement: .primaryAction) {
                 if viewModel.isLoading {
                     ProgressView()
@@ -42,11 +45,19 @@ struct ContentView: View {
             viewModel.setRefreshPaused(phase != .active)
         }
         .onKeyPress { press in
-            guard press.modifiers.contains(.command), press.modifiers.contains(.shift),
-                  press.characters == "+"
-            else { return .ignored }
-            fontScale.increase()
-            return .handled
+            guard press.modifiers.contains(.command), press.modifiers.contains(.shift) else {
+                return .ignored
+            }
+            switch press.characters {
+            case "+":
+                fontScale.increase()
+                return .handled
+            case "f", "F":
+                viewModel.searchFocusRequest += 1
+                return .handled
+            default:
+                return .ignored
+            }
         }
         .task {
             await viewModel.startPeriodicRefresh()
