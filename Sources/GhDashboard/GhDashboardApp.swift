@@ -9,19 +9,15 @@ struct GhDashboardApp: App {
         WindowGroup {
             ContentView(viewModel: viewModel)
                 .environment(fontScale)
-                .dynamicTypeSize(fontScale.dynamicTypeSize)
+                .scaleEffect(fontScale.scale)
                 .frame(minWidth: 800, minHeight: 500)
         }
         .commands {
             CommandGroup(after: .windowSize) {
-                Button("Increase Text Size") {
-                    fontScale.increase()
-                }
+                Button("Increase Text Size") { fontScale.increase() }
                 .keyboardShortcut("=", modifiers: .command)
 
-                Button("Decrease Text Size") {
-                    fontScale.decrease()
-                }
+                Button("Decrease Text Size") { fontScale.decrease() }
                 .keyboardShortcut("-", modifiers: .command)
 
                 Divider()
