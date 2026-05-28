@@ -2,6 +2,13 @@
 
 All notable changes for this project are described in this file. Release tags refer to the app and automation as shipped in the repository at that commit.
 
+## [Unreleased]
+
+### Added
+
+- **Adjustable text size**: increase or decrease the UI font scale with **⌘+** / **⌘−** (reset with **⌘0**); the chosen scale persists across launches.
+- **⌘F search overlay**: Spotlight-style floating panel searches all loaded items across every section by title, repo, author, issue/PR number, and labels. Clicking a result switches to that item's section and opens it in the detail pane; keyboard navigation (↑↓ / Return) and Escape to dismiss are supported.
+
 ## [1.0.0] — 2026-05-06
 
 First tagged version of **gh-dashboard** as a native macOS app (commit `586f221`).
