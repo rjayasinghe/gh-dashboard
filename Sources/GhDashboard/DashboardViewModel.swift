@@ -11,6 +11,8 @@ final class DashboardViewModel {
     var isLoading = false
     var lastFetch: Date?
     var configError: String?
+    var isSearching = false
+    var searchQuery = ""
 
     private var hosts: [String] = []
     private var myDoDIssuesSettings: MyDoDIssuesSettings?
@@ -68,6 +70,25 @@ final class DashboardViewModel {
             guard let items = dict[host] else { return nil }
             return (host, items)
         }
+    }
+
+    var searchResults: [DashboardItem] {
+        let q = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return [] }
+        return items.filter { item in
+            item.title.localizedCaseInsensitiveContains(q) ||
+            item.repo.localizedCaseInsensitiveContains(q) ||
+            item.author.localizedCaseInsensitiveContains(q) ||
+            "\(item.number)".contains(q) ||
+            item.labels.contains { $0.localizedCaseInsensitiveContains(q) }
+        }
+    }
+
+    func selectSearchResult(_ item: DashboardItem) {
+        section = item.section
+        selectedItemID = item.id
+        isSearching = false
+        searchQuery = ""
     }
 
     func sectionCount(_ sec: DashboardSection) -> Int {
