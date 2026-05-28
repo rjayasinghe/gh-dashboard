@@ -4,7 +4,6 @@ import Core
 struct ContentView: View {
     @Bindable var viewModel: DashboardViewModel
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(FontScaleSettings.self) private var fontScale
 
     var body: some View {
         NavigationSplitView {
@@ -40,13 +39,6 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             viewModel.setRefreshPaused(phase != .active)
-        }
-        .onKeyPress { press in
-            guard press.modifiers.contains(.command), press.modifiers.contains(.shift),
-                  press.characters == "+"
-            else { return .ignored }
-            fontScale.increase()
-            return .handled
         }
         .task {
             await viewModel.startPeriodicRefresh()

@@ -1,32 +1,21 @@
 import SwiftUI
 
-/// Discrete text-size steps mapped to Dynamic Type; persisted across launches.
 @Observable
 @MainActor
 final class FontScaleSettings {
     private static let storageKey = "fontScaleStep"
-
-    /// Slightly above system default — the app’s “normal” size (⌘0).
     private static let defaultStep = 3
 
-    private static let sizes: [DynamicTypeSize] = [
-        .xSmall, .small, .medium, .large, .xLarge, .xxLarge, .xxxLarge,
-        .accessibility1, .accessibility2, .accessibility3, .accessibility4, .accessibility5,
+    private static let scales: [CGFloat] = [
+        0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.35, 1.50, 1.65, 1.80, 2.00, 2.20,
     ]
 
     private(set) var step: Int {
-        didSet {
-            let clamped = Self.clamp(step)
-            if clamped != step {
-                step = clamped
-                return
-            }
-            UserDefaults.standard.set(step, forKey: Self.storageKey)
-        }
+        didSet { UserDefaults.standard.set(step, forKey: Self.storageKey) }
     }
 
-    var dynamicTypeSize: DynamicTypeSize {
-        Self.sizes[step]
+    var scale: CGFloat {
+        Self.scales[step]
     }
 
     init() {
@@ -34,19 +23,11 @@ final class FontScaleSettings {
         step = Self.clamp(stored ?? Self.defaultStep)
     }
 
-    func increase() {
-        step += 1
-    }
-
-    func decrease() {
-        step -= 1
-    }
-
-    func reset() {
-        step = Self.defaultStep
-    }
+    func increase() { step = Self.clamp(step + 1) }
+    func decrease() { step = Self.clamp(step - 1) }
+    func reset() { step = Self.defaultStep }
 
     private static func clamp(_ value: Int) -> Int {
-        min(max(value, 0), sizes.count - 1)
+        min(max(value, 0), scales.count - 1)
     }
 }
