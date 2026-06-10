@@ -1,9 +1,10 @@
-import XCTest
+import Testing
+import Foundation
 
 @testable import Core
 
-final class ConfigLoaderTests: XCTestCase {
-    func testMultiLineHosts() throws {
+@Suite struct ConfigLoaderTests {
+    @Test func multiLineHosts() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
         try """
         [github]
@@ -15,12 +16,12 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let cfg = try ConfigLoader.load(path: tmp.path)
-        XCTAssertEqual(cfg.hosts, ["github.com", "github.mycompany.com"])
-        XCTAssertNil(cfg.myDoDIssues)
-        XCTAssertNil(cfg.issueQueue)
+        #expect(cfg.hosts == ["github.com", "github.mycompany.com"])
+        #expect(cfg.myDoDIssues == nil)
+        #expect(cfg.issueQueue == nil)
     }
 
-    func testSingleLineHosts() throws {
+    @Test func singleLineHosts() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
         try """
         [github]
@@ -29,14 +30,14 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let cfg = try ConfigLoader.load(path: tmp.path)
-        XCTAssertEqual(cfg.hosts, ["github.com"])
+        #expect(cfg.hosts == ["github.com"])
     }
 
-    func testMissingFileThrows() throws {
-        XCTAssertThrowsError(try ConfigLoader.load(path: "/nonexistent/path.toml"))
+    @Test func missingFileThrows() {
+        #expect(throws: (any Error).self) { try ConfigLoader.load(path: "/nonexistent/path.toml") }
     }
 
-    func testEmptyHostsThrows() throws {
+    @Test func emptyHostsThrows() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
         try """
         [github]
@@ -44,10 +45,10 @@ final class ConfigLoaderTests: XCTestCase {
         """.write(to: tmp, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        XCTAssertThrowsError(try ConfigLoader.load(path: tmp.path))
+        #expect(throws: (any Error).self) { try ConfigLoader.load(path: tmp.path) }
     }
 
-    func testMyIssuesAndIssueQueueTogether() throws {
+    @Test func myIssuesAndIssueQueueTogether() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
         try """
         [github]
@@ -66,13 +67,13 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let cfg = try ConfigLoader.load(path: tmp.path)
-        XCTAssertEqual(cfg.myDoDIssues?.repository, "team/app")
-        XCTAssertEqual(cfg.myDoDIssues?.excludeLabels, ["blocked"])
-        XCTAssertEqual(cfg.issueQueue?.repository, "team/app")
-        XCTAssertEqual(cfg.issueQueue?.includeLabels, ["ready", "queued"])
+        #expect(cfg.myDoDIssues?.repository == "team/app")
+        #expect(cfg.myDoDIssues?.excludeLabels == ["blocked"])
+        #expect(cfg.issueQueue?.repository == "team/app")
+        #expect(cfg.issueQueue?.includeLabels == ["ready", "queued"])
     }
 
-    func testCommentsIgnoredInHosts() throws {
+    @Test func commentsIgnoredInHosts() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("test-\(UUID()).toml")
         try """
         # Main config
@@ -85,7 +86,6 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let cfg = try ConfigLoader.load(path: tmp.path)
-        XCTAssertEqual(cfg.hosts, ["github.com"])
+        #expect(cfg.hosts == ["github.com"])
     }
 }
-

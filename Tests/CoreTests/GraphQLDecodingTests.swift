@@ -1,10 +1,10 @@
 import Foundation
-import XCTest
+import Testing
 
 @testable import Core
 
-final class GraphQLDecodingTests: XCTestCase {
-    func testDecodesPullRequestAndIssueNodes() throws {
+@Suite struct GraphQLDecodingTests {
+    @Test func decodesPullRequestAndIssueNodes() throws {
         let fixture = """
         {
           "data": {
@@ -53,37 +53,37 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let response = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(fixture.utf8))
-        let data = try XCTUnwrap(response.data)
+        let data = try #require(response.data)
 
-        XCTAssertEqual(data.search.nodes.count, 2)
-        XCTAssertEqual(data.search.pageInfo.hasNextPage, false)
+        #expect(data.search.nodes.count == 2)
+        #expect(data.search.pageInfo.hasNextPage == false)
 
         switch data.search.nodes[0] {
         case .pullRequest(let pr):
-            XCTAssertEqual(pr.number, 42)
-            XCTAssertEqual(pr.title, "Fix widget alignment")
-            XCTAssertEqual(pr.state, "OPEN")
-            XCTAssertEqual(pr.author?.login, "alice")
-            XCTAssertEqual(pr.labels.nodes.count, 2)
-            XCTAssertEqual(pr.repository.nameWithOwner, "org/repo")
-            XCTAssertEqual(pr.reviews.nodes.count, 2)
-            XCTAssertEqual(pr.comments.nodes.count, 2)
+            #expect(pr.number == 42)
+            #expect(pr.title == "Fix widget alignment")
+            #expect(pr.state == "OPEN")
+            #expect(pr.author?.login == "alice")
+            #expect(pr.labels.nodes.count == 2)
+            #expect(pr.repository.nameWithOwner == "org/repo")
+            #expect(pr.reviews.nodes.count == 2)
+            #expect(pr.comments.nodes.count == 2)
         default:
-            XCTFail("Expected PullRequest at index 0")
+            Issue.record("Expected PullRequest at index 0")
         }
 
         switch data.search.nodes[1] {
         case .issue(let issue):
-            XCTAssertEqual(issue.number, 99)
-            XCTAssertEqual(issue.title, "Track performance regression")
-            XCTAssertEqual(issue.author?.login, "dave")
-            XCTAssertEqual(issue.comments.nodes.count, 0)
+            #expect(issue.number == 99)
+            #expect(issue.title == "Track performance regression")
+            #expect(issue.author?.login == "dave")
+            #expect(issue.comments.nodes.count == 0)
         default:
-            XCTFail("Expected Issue at index 1")
+            Issue.record("Expected Issue at index 1")
         }
     }
 
-    func testDecodesPageInfoWithCursor() throws {
+    @Test func decodesPageInfoWithCursor() throws {
         let json = """
         {
           "data": {
@@ -96,12 +96,12 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let r = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(json.utf8))
-        let data = try XCTUnwrap(r.data)
-        XCTAssertEqual(data.search.pageInfo.hasNextPage, true)
-        XCTAssertEqual(data.search.pageInfo.endCursor, "Y3Vyc29yOnYyOg==")
+        let data = try #require(r.data)
+        #expect(data.search.pageInfo.hasNextPage == true)
+        #expect(data.search.pageInfo.endCursor == "Y3Vyc29yOnYyOg==")
     }
 
-    func testDecodesUnknownTypenameAsUnknown() throws {
+    @Test func decodesUnknownTypenameAsUnknown() throws {
         let json = """
         {
           "data": {
@@ -114,10 +114,10 @@ final class GraphQLDecodingTests: XCTestCase {
         """
 
         let r = try JSONCoding.decoder().decode(GQLSearchResponse.self, from: Data(json.utf8))
-        let data = try XCTUnwrap(r.data)
+        let data = try #require(r.data)
         guard case .unknown = data.search.nodes[0] else {
-            return XCTFail("Expected .unknown for Discussion")
+            Issue.record("Expected .unknown for Discussion")
+            return
         }
     }
 }
-

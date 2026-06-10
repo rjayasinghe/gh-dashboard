@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
+        .package(url: "https://github.com/apple/swift-testing.git", from: "0.10.0"),
     ],
     targets: [
         .executableTarget(
@@ -21,7 +22,10 @@ let package = Package(
         ),
         .testTarget(
             name: "CoreTests",
-            dependencies: ["Core"],
+            dependencies: [
+                "Core",
+                .product(name: "Testing", package: "swift-testing"),
+            ],
             path: "Tests/CoreTests"
         ),
     ]
