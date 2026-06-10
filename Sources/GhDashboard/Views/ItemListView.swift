@@ -39,6 +39,9 @@ struct ItemListView: View {
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
             .navigationTitle(viewModel.section.label)
+            .onKeyPress("j") { viewModel.selectNext(); return .handled }
+            .onKeyPress("k") { viewModel.selectPrevious(); return .handled }
+            .onKeyPress("o") { viewModel.openSelectedItem(); return .handled }
         }
     }
 }
