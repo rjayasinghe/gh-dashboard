@@ -72,6 +72,35 @@ final class DashboardViewModel {
         }
     }
 
+    var flatVisibleItems: [DashboardItem] {
+        groupedByHost.flatMap { $0.items }
+    }
+
+    func selectNext() {
+        let list = flatVisibleItems
+        guard !list.isEmpty else { return }
+        if let id = selectedItemID, let idx = list.firstIndex(where: { $0.id == id }) {
+            selectedItemID = list[(idx + 1) % list.count].id
+        } else {
+            selectedItemID = list.first?.id
+        }
+    }
+
+    func selectPrevious() {
+        let list = flatVisibleItems
+        guard !list.isEmpty else { return }
+        if let id = selectedItemID, let idx = list.firstIndex(where: { $0.id == id }) {
+            selectedItemID = list[(idx - 1 + list.count) % list.count].id
+        } else {
+            selectedItemID = list.last?.id
+        }
+    }
+
+    func openSelectedItem() {
+        guard let url = selectedItem.flatMap({ URL(string: $0.url) }) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     var searchResults: [DashboardItem] {
         let q = searchQuery.trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return [] }
