@@ -1,9 +1,9 @@
-import XCTest
+import Testing
 
 @testable import Core
 
-final class MergeByHostTests: XCTestCase {
-    func testFailedHostRetainsCachedItems() {
+@Suite struct MergeByHostTests {
+    @Test func failedHostRetainsCachedItems() {
         let cached = [
             DashboardItem(
                 id: "a-pr-1",
@@ -71,9 +71,9 @@ final class MergeByHostTests: XCTestCase {
             merged.append(item)
         }
 
-        XCTAssertEqual(merged.count, 2)
-        XCTAssertTrue(merged.contains(where: { $0.id == "a-pr-3" }))
-        XCTAssertFalse(merged.contains(where: { $0.id == "a-pr-1" }))
-        XCTAssertTrue(merged.contains(where: { $0.id == "b-pr-2" }))
+        #expect(merged.count == 2)
+        #expect(merged.contains(where: { $0.id == "a-pr-3" }))
+        #expect(!merged.contains(where: { $0.id == "a-pr-1" }))
+        #expect(merged.contains(where: { $0.id == "b-pr-2" }))
     }
 }

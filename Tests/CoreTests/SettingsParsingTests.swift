@@ -1,40 +1,40 @@
-import XCTest
+import Testing
 
 @testable import Core
 
-final class SettingsParsingTests: XCTestCase {
-    func testMyDoDIssuesSearchQueryWithExcludeLabel() {
+@Suite struct SettingsParsingTests {
+    @Test func myDoDIssuesSearchQueryWithExcludeLabel() {
         let filteredIssues = MyDoDIssuesSettings(
             host: "git.example.com",
             repository: "acme/widget",
             excludeLabels: ["waiting on customer"]
         )
-        XCTAssertEqual(
-            filteredIssues.searchQuery,
+        #expect(
+            filteredIssues.searchQuery ==
             "repo:acme/widget is:issue is:open assignee:@me archived:false -label:\"waiting on customer\""
         )
     }
 
-    func testMyDoDIssuesSearchQueryWithMultipleExcludeLabels() {
+    @Test func myDoDIssuesSearchQueryWithMultipleExcludeLabels() {
         let filteredMulti = MyDoDIssuesSettings(
             host: "git.example.com",
             repository: "acme/widget",
             excludeLabels: ["waiting on customer", "blocked"]
         )
-        XCTAssertEqual(
-            filteredMulti.searchQuery,
+        #expect(
+            filteredMulti.searchQuery ==
             "repo:acme/widget is:issue is:open assignee:@me archived:false -label:\"waiting on customer\" -label:\"blocked\""
         )
     }
 
-    func testParseCommaSeparatedLabels() {
-        XCTAssertEqual(
-            MyDoDIssuesSettings.parseCommaSeparatedLabels(" Author Action , Foo Bar ").joined(separator: "|"),
+    @Test func parseCommaSeparatedLabels() {
+        #expect(
+            MyDoDIssuesSettings.parseCommaSeparatedLabels(" Author Action , Foo Bar ").joined(separator: "|") ==
             "Author Action|Foo Bar"
         )
     }
 
-    func testParseMyIssuesToml() {
+    @Test func parseMyIssuesToml() {
         let myIssuesToml = """
         [github]
         hosts = ["git.example.com"]
@@ -45,11 +45,11 @@ final class SettingsParsingTests: XCTestCase {
         exclude_labels = "Foo Bar, Baz Qux"
         """
         let parsed = MyDoDIssuesSettings.parse(fromToml: myIssuesToml)
-        XCTAssertEqual(parsed?.repository, "org/custom")
-        XCTAssertEqual(parsed?.excludeLabels, ["Foo Bar", "Baz Qux"])
+        #expect(parsed?.repository == "org/custom")
+        #expect(parsed?.excludeLabels == ["Foo Bar", "Baz Qux"])
     }
 
-    func testParseLegacyMyDodIssuesToml() {
+    @Test func parseLegacyMyDodIssuesToml() {
         let legacyToml = """
         [github]
         hosts = ["git.example.com"]
@@ -60,31 +60,31 @@ final class SettingsParsingTests: XCTestCase {
         exclude_labels = "Stale"
         """
         let parsed = MyDoDIssuesSettings.parse(fromToml: legacyToml)
-        XCTAssertEqual(parsed?.repository, "legacy/repo")
-        XCTAssertEqual(parsed?.excludeLabels, ["Stale"])
+        #expect(parsed?.repository == "legacy/repo")
+        #expect(parsed?.excludeLabels == ["Stale"])
     }
 
-    func testParseMyIssuesAbsentOrIncomplete() {
-        XCTAssertNil(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n"))
-        XCTAssertNil(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\n"))
-        XCTAssertNil(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\nhost = \"a\"\n"))
+    @Test func parseMyIssuesAbsentOrIncomplete() {
+        #expect(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil)
+        #expect(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\n") == nil)
+        #expect(MyDoDIssuesSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[my_issues]\nhost = \"a\"\n") == nil)
     }
 
-    func testMyIssuesSearchQueryWithoutExcludeLabels() {
-        XCTAssertEqual(
-            MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: []).searchQuery,
+    @Test func myIssuesSearchQueryWithoutExcludeLabels() {
+        #expect(
+            MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: []).searchQuery ==
             "repo:o/r is:issue is:open assignee:@me archived:false"
         )
     }
 
-    func testBlankExcludeLabelsSkippedInQuery() {
-        XCTAssertEqual(
-            MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: ["", "   "]).searchQuery,
+    @Test func blankExcludeLabelsSkippedInQuery() {
+        #expect(
+            MyDoDIssuesSettings(host: "h", repository: "o/r", excludeLabels: ["", "   "]).searchQuery ==
             "repo:o/r is:issue is:open assignee:@me archived:false"
         )
     }
 
-    func testParseRepoAliasAndLegacyExcludeLabel() {
+    @Test func parseRepoAliasAndLegacyExcludeLabel() {
         let myIssuesAliasToml = """
         [github]
         hosts = ["git.example.com"]
@@ -95,27 +95,27 @@ final class SettingsParsingTests: XCTestCase {
         exclude_label = "Foo, Bar"
         """
         let parsed = MyDoDIssuesSettings.parse(fromToml: myIssuesAliasToml)
-        XCTAssertEqual(parsed?.repository, "alias/repo")
-        XCTAssertEqual(parsed?.excludeLabels, ["Foo", "Bar"])
+        #expect(parsed?.repository == "alias/repo")
+        #expect(parsed?.excludeLabels == ["Foo", "Bar"])
     }
 
-    func testIssueQueueSingleLabelQuery() {
+    @Test func issueQueueSingleLabelQuery() {
         let queueOne = IssueQueueSettings(host: "git.example.com", repository: "acme/inbox", includeLabels: ["ready"])
-        XCTAssertEqual(
-            queueOne.searchQuery,
+        #expect(
+            queueOne.searchQuery ==
             "repo:acme/inbox is:issue is:open no:assignee archived:false label:\"ready\""
         )
     }
 
-    func testIssueQueueMultipleLabelsOrQuery() {
+    @Test func issueQueueMultipleLabelsOrQuery() {
         let queueMulti = IssueQueueSettings(host: "git.example.com", repository: "acme/inbox", includeLabels: ["ready", "queued"])
-        XCTAssertEqual(
-            queueMulti.searchQuery,
+        #expect(
+            queueMulti.searchQuery ==
             "repo:acme/inbox is:issue is:open no:assignee archived:false (label:\"ready\" OR label:\"queued\")"
         )
     }
 
-    func testParseIssueQueueToml() {
+    @Test func parseIssueQueueToml() {
         let queueToml = """
         [github]
         hosts = ["git.example.com"]
@@ -126,18 +126,18 @@ final class SettingsParsingTests: XCTestCase {
         include_labels = "ready, queued"
         """
         let parsed = IssueQueueSettings.parse(fromToml: queueToml)
-        XCTAssertEqual(parsed?.repository, "acme/inbox")
-        XCTAssertEqual(parsed?.includeLabels, ["ready", "queued"])
+        #expect(parsed?.repository == "acme/inbox")
+        #expect(parsed?.includeLabels == ["ready", "queued"])
     }
 
-    func testParseIssueQueueAbsentOrIncomplete() {
-        XCTAssertNil(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n"))
-        XCTAssertNil(
-            IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[issue_queue]\nhost = \"a\"\nrepository = \"b/c\"\n")
+    @Test func parseIssueQueueAbsentOrIncomplete() {
+        #expect(IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n") == nil)
+        #expect(
+            IssueQueueSettings.parse(fromToml: "[github]\nhosts = [\"a\"]\n\n[issue_queue]\nhost = \"a\"\nrepository = \"b/c\"\n") == nil
         )
     }
 
-    func testParseRepoAliasAndLegacyIncludeLabel() {
+    @Test func parseRepoAliasAndLegacyIncludeLabel() {
         let queueAliasToml = """
         [github]
         hosts = ["git.example.com"]
@@ -148,11 +148,11 @@ final class SettingsParsingTests: XCTestCase {
         include_label = "ready, queued"
         """
         let parsed = IssueQueueSettings.parse(fromToml: queueAliasToml)
-        XCTAssertEqual(parsed?.repository, "alias/queue")
-        XCTAssertEqual(parsed?.includeLabels, ["ready", "queued"])
+        #expect(parsed?.repository == "alias/queue")
+        #expect(parsed?.includeLabels == ["ready", "queued"])
     }
 
-    func testWhitespaceOnlyIncludeLabelsNil() {
+    @Test func whitespaceOnlyIncludeLabelsNil() {
         let toml = """
         [github]
         hosts = ["git.example.com"]
@@ -162,12 +162,11 @@ final class SettingsParsingTests: XCTestCase {
         repository = "o/r"
         include_labels = ",  ,"
         """
-        XCTAssertNil(IssueQueueSettings.parse(fromToml: toml))
+        #expect(IssueQueueSettings.parse(fromToml: toml) == nil)
     }
 
-    func testIssueQueueSearchQueryEmptyWhenNoLabels() {
-        XCTAssertEqual(IssueQueueSettings(host: "h", repository: "o/r", includeLabels: []).searchQuery, "")
-        XCTAssertEqual(IssueQueueSettings(host: "h", repository: "o/r", includeLabels: ["", "  "]).searchQuery, "")
+    @Test func issueQueueSearchQueryEmptyWhenNoLabels() {
+        #expect(IssueQueueSettings(host: "h", repository: "o/r", includeLabels: []).searchQuery == "")
+        #expect(IssueQueueSettings(host: "h", repository: "o/r", includeLabels: ["", "  "]).searchQuery == "")
     }
 }
-

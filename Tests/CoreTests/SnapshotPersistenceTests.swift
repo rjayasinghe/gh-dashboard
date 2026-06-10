@@ -1,10 +1,10 @@
 import Foundation
-import XCTest
+import Testing
 
 @testable import Core
 
-final class SnapshotPersistenceTests: XCTestCase {
-    func testPersistedSnapshotEncodesDecodesRoundTrip() throws {
+@Suite struct SnapshotPersistenceTests {
+    @Test func persistedSnapshotEncodesDecodesRoundTrip() throws {
         let comment = ItemComment(id: "IC_1", author: "bob", body: "lgtm", createdAt: Date(timeIntervalSince1970: 1_700_000_000))
         let item = DashboardItem(
             id: "gh-pr-org/repo-7",
@@ -30,15 +30,15 @@ final class SnapshotPersistenceTests: XCTestCase {
         let data = try JSONCoding.encoder().encode(snapshot)
         let decoded = try JSONCoding.decoder().decode(PersistedSnapshot.self, from: data)
 
-        XCTAssertEqual(decoded.schemaVersion, PersistedSnapshot.currentSchemaVersion)
-        XCTAssertEqual(decoded.items.count, 1)
-        XCTAssertEqual(decoded.items[0].id, "gh-pr-org/repo-7")
-        XCTAssertEqual(decoded.items[0].state, .open)
-        XCTAssertEqual(decoded.items[0].section, .myPRs)
-        XCTAssertEqual(decoded.items[0].reviewStatus, .approved)
+        #expect(decoded.schemaVersion == PersistedSnapshot.currentSchemaVersion)
+        #expect(decoded.items.count == 1)
+        #expect(decoded.items[0].id == "gh-pr-org/repo-7")
+        #expect(decoded.items[0].state == .open)
+        #expect(decoded.items[0].section == .myPRs)
+        #expect(decoded.items[0].reviewStatus == .approved)
     }
 
-    func testSnapshotStoreSaveLoadRoundTrip() throws {
+    @Test func snapshotStoreSaveLoadRoundTrip() throws {
         let item = DashboardItem(
             id: "io-1-\(UUID().uuidString)",
             number: 10,
@@ -61,7 +61,7 @@ final class SnapshotPersistenceTests: XCTestCase {
 
         SnapshotStore.save(snap)
         let loaded = SnapshotStore.load()
-        XCTAssertNotNil(loaded)
-        XCTAssertTrue(loaded?.items.contains(where: { $0.id == item.id }) == true)
+        #expect(loaded != nil)
+        #expect(loaded?.items.contains(where: { $0.id == item.id }) == true)
     }
 }
