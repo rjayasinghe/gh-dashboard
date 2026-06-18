@@ -17,25 +17,31 @@ final class DashboardViewModel {
     private var hosts: [String] = []
     private var myDoDIssuesSettings: MyDoDIssuesSettings?
     private var issueQueueSettings: IssueQueueSettings?
+    private var notificationSettings: NotificationSettings = .default
     private var credentials: [String: String] = [:]
     private let refreshInterval: TimeInterval = 300
     private var refreshPaused = false
+    /// Authorization is requested once per launch — guarded so we don't re-prompt on every refresh tick.
+    private var didRequestNotificationAuth = false
 
     private let configLoader: any ConfigLoading
     private let credentialProvider: any CredentialProviding
     private let snapshotStore: any SnapshotPersisting
     private let itemFetcher: any ItemFetching
+    private let notificationService: any NotificationDispatching
 
     init(
         configLoader: any ConfigLoading = LiveConfigLoader(),
         credentialProvider: any CredentialProviding = LiveCredentialProvider(),
         snapshotStore: any SnapshotPersisting = LiveSnapshotStore(),
-        itemFetcher: any ItemFetching = LiveItemFetcher()
+        itemFetcher: any ItemFetching = LiveItemFetcher(),
+        notificationService: any NotificationDispatching = LiveNotificationService()
     ) {
         self.configLoader = configLoader
         self.credentialProvider = credentialProvider
         self.snapshotStore = snapshotStore
         self.itemFetcher = itemFetcher
+        self.notificationService = notificationService
     }
 
     /// Sidebar rows; omits optional tabs when their TOML blocks are missing or incomplete.
@@ -130,12 +136,14 @@ final class DashboardViewModel {
             hosts = cfg.hosts
             myDoDIssuesSettings = cfg.myDoDIssues
             issueQueueSettings = cfg.issueQueue
+            notificationSettings = cfg.notifications
             configError = nil
         } catch {
             configError = error.localizedDescription
             hosts = []
             myDoDIssuesSettings = nil
             issueQueueSettings = nil
+            notificationSettings = .default
         }
         normalizeSectionAndSelectionForOptionalTabs()
     }
@@ -268,12 +276,29 @@ final class DashboardViewModel {
         normalizeSectionAndSelectionForOptionalTabs()
 
         snapshotStore.save(PersistedSnapshot(items: merged))
+
+        // Diff against the items captured at the top of refresh() — equals the loaded snapshot on
+        // first refresh after launch, so a fresh install with no cache will treat everything as new.
+        if notificationSettings.enabled {
+            let changes = ChangeDetector.detect(
+                old: previousItems,
+                new: merged,
+                settings: notificationSettings
+            )
+            for change in changes {
+                await notificationService.notify(change)
+            }
+        }
     }
 
     func startPeriodicRefresh() async {
         loadConfig()
         await loadCredentials()
         loadCache()
+        if notificationSettings.enabled, !didRequestNotificationAuth {
+            didRequestNotificationAuth = true
+            await notificationService.requestAuthorizationIfNeeded()
+        }
         await Task.yield()
         await refresh()
         while !Task.isCancelled {

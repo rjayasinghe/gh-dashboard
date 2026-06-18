@@ -22,6 +22,26 @@ public protocol ItemFetching: Sendable {
     ) async throws -> [DashboardItem]
 }
 
+/// One detected change between two refresh snapshots. `ChangeDetector` produces these;
+/// `NotificationDispatching` consumes them.
+public enum DashboardChange: Sendable, Equatable {
+    /// Item appeared in the new fetch but wasn't in the prior set.
+    case newItem(DashboardItem)
+    /// Same id, but `updatedAt` advanced (and not categorized as state change).
+    case updated(old: DashboardItem, new: DashboardItem)
+    /// Same id, with a comment whose id wasn't in the prior cached value.
+    case newComment(item: DashboardItem, comment: ItemComment)
+    /// Same id, but `state` or `isDraft` changed (e.g., open → merged).
+    case stateChanged(old: DashboardItem, new: DashboardItem)
+}
+
+public protocol NotificationDispatching: Sendable {
+    /// Request banner permission once. Idempotent — safe to call on every launch.
+    func requestAuthorizationIfNeeded() async
+    /// Deliver a single notification for one detected change.
+    func notify(_ change: DashboardChange) async
+}
+
 public struct LiveConfigLoader: ConfigLoading {
     private let path: String
 
