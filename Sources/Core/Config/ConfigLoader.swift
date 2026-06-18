@@ -6,6 +6,21 @@ public struct AppConfig: Sendable {
     public let myDoDIssues: MyDoDIssuesSettings?
     /// **Issue queue** tab; `nil` when `[issue_queue]` is absent or incomplete (tab hidden).
     public let issueQueue: IssueQueueSettings?
+    /// macOS notifications for new items, updates, comments, and state transitions. Defaults to all-on
+    /// when `[notifications]` is absent.
+    public let notifications: NotificationSettings
+
+    public init(
+        hosts: [String],
+        myDoDIssues: MyDoDIssuesSettings?,
+        issueQueue: IssueQueueSettings?,
+        notifications: NotificationSettings = .default
+    ) {
+        self.hosts = hosts
+        self.myDoDIssues = myDoDIssues
+        self.issueQueue = issueQueue
+        self.notifications = notifications
+    }
 }
 
 public enum ConfigLoader {
@@ -24,7 +39,8 @@ public enum ConfigLoader {
         }
         let myDoDIssues = MyDoDIssuesSettings.parse(fromToml: contents)
         let issueQueue = IssueQueueSettings.parse(fromToml: contents)
-        return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues, issueQueue: issueQueue)
+        let notifications = NotificationSettings.parse(fromToml: contents)
+        return AppConfig(hosts: hosts, myDoDIssues: myDoDIssues, issueQueue: issueQueue, notifications: notifications)
     }
 }
 
