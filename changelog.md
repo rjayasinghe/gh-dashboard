@@ -4,10 +4,48 @@ All notable changes for this project are described in this file. Release tags re
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-05-28
+
 ### Added
 
 - **Adjustable text size**: increase or decrease the UI font scale with **⌘+** / **⌘−** (reset with **⌘0**); the chosen scale persists across launches.
 - **⌘F search overlay**: Spotlight-style floating panel searches all loaded items across every section by title, repo, author, issue/PR number, and labels. Clicking a result switches to that item's section and opens it in the detail pane; keyboard navigation (↑↓ / Return) and Escape to dismiss are supported.
+- **Optional filtered tabs**: **My issues** and **Issue queue** sidebar sections, configurable via `[my_do_d_issues]` / `[issue_queue]` blocks in `config.toml`; sections are hidden when their settings are absent.
+- **Developer ID signing and notarization**: release workflow can produce Developer ID–signed and notarized artifacts when the required secrets are configured.
+- **DMG release artifact**: tagged releases now publish a **DMG** alongside the ZIP on the [Releases](https://github.com/rjayasinghe/gh-dashboard/releases) page (originally shipped in **v1.0.1**).
+
+### Changed
+
+- **Repo layout flattened**: contents of `macOS/` moved to the repo root; the Swift Package now lives at the top level.
+- **Config parsing consolidated** into `TomlConfigParsing`, with section-detection fixes for multi-line host blocks.
+- **Review/state model**: replaced ad-hoc string statuses with enums; snapshot schema migrated to **v2** with backward-compatible loading.
+- **GraphQL client hardened**: transport abstraction, retries, and stable comment IDs; injectable services and `os.Logger` throughout for testability and diagnostics.
+- **Background refresh paused** while the app is inactive (driven by `scenePhase`) to avoid unnecessary network activity.
+- **Credential loading is async**, removing keychain access from the main thread on startup.
+- **`FlowLayout` extracted** into a reusable component.
+- **Tests migrated** from the `CoreTests` executable harness to a proper **XCTest** target invoked via `swift test`.
+- **CI/release workflow**: fixed permissions for asset uploads and pinned to a future-proof GitHub Actions Node runtime; CI now mirrors the test runner.
+- **README**: prioritizes the Gatekeeper "open anyway" workaround for users without a Developer ID build.
+
+### Fixed
+
+- **Font scaling on macOS** now uses `scaleEffect` instead of `dynamicTypeSize`, which had no effect on macOS.
+- **GraphQL decoding** tolerates optional response data fields that previously caused decoding failures.
+- **`DashboardItem.body`** handling and CI alignment so `CoreTests` runs cleanly under `swift test`.
+
+### Removed
+
+- **`@_exported` Foundation re-export** from Core; downstream files import Foundation explicitly.
+
+## [1.0.1] — 2026-05-07
+
+### Added
+
+- **DMG artifact** attached to GitHub Releases alongside the ZIP, providing a friendlier download for non-CLI users.
+
+### Fixed
+
+- **Release workflow permissions** so tagged builds can upload assets (the gap that prevented binaries from being attached to **v1.0.0**).
 
 ## [1.0.0] — 2026-05-06
 

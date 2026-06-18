@@ -58,3 +58,7 @@ GraphQL API → GraphQLClient → [DashboardItem] → SnapshotStore (cache)
 ```
 
 Refresh runs on a 5-minute timer in `startPeriodicRefresh()`, paused while the app is backgrounded (`scenePhase`). Per-host failures retain cached items for that host.
+
+## Changelog
+
+Maintain `changelog.md` alongside any notable change — new features, bug fixes, user-visible behavior changes, config or schema changes, and release-workflow changes. Add an entry under `## [Unreleased]` (grouped as **Added / Changed / Fixed / Removed**) in the same change as the code; promote `[Unreleased]` to a versioned section when tagging a release. Skip purely internal refactors, test-only changes, and doc tweaks that have no user impact.
