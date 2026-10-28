@@ -8,12 +8,12 @@ struct ItemRow: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text("#\(item.number)")
-                    .font(.system(.body, design: .monospaced))
+                    .scaledFont(.body, design: .monospaced)
                     .foregroundStyle(.secondary)
 
                 if item.isDraft {
                     Text("draft")
-                        .font(.caption2)
+                        .scaledFont(.caption2)
                         .fontWeight(.medium)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -37,13 +37,13 @@ struct ItemRow: View {
 
             HStack(spacing: 8) {
                 Text(item.repo)
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
                 if !item.labels.isEmpty {
                     Text(item.labels.joined(separator: ", "))
-                        .font(.caption2)
+                        .scaledFont(.caption2)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
@@ -51,7 +51,7 @@ struct ItemRow: View {
                 Spacer()
 
                 Text(item.updatedAt, style: .relative)
-                    .font(.caption2)
+                    .scaledFont(.caption2)
                     .foregroundStyle(.tertiary)
                     .monospacedDigit()
             }

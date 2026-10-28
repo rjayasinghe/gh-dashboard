@@ -11,7 +11,7 @@ struct SidebarView: View {
                     Text(sec.label)
                     Spacer()
                     Text("\(viewModel.sectionCount(sec))")
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -26,20 +26,20 @@ struct SidebarView: View {
             VStack(spacing: 4) {
                 if let configError = viewModel.configError {
                     Label(configError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .foregroundStyle(.red)
                         .padding(.horizontal, 12)
                 }
                 ForEach(viewModel.errorsByHost.sorted(by: { $0.key < $1.key }), id: \.key) { host, error in
                     Label("\(host): \(error)", systemImage: "xmark.circle.fill")
-                        .font(.caption2)
+                        .scaledFont(.caption2)
                         .foregroundStyle(.red)
                         .lineLimit(2)
                         .padding(.horizontal, 12)
                 }
                 if let lastFetch = viewModel.lastFetch {
                     Text("Updated \(lastFetch, style: .relative) ago")
-                        .font(.caption2)
+                        .scaledFont(.caption2)
                         .foregroundStyle(.tertiary)
                         .padding(.bottom, 6)
                 }

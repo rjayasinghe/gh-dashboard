@@ -40,13 +40,13 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text("#\(item.number)")
-                    .font(.title2)
+                    .scaledFont(.title2)
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
 
                 if item.isDraft {
                     Text("DRAFT")
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .fontWeight(.bold)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -58,13 +58,13 @@ struct DetailView: View {
             }
 
             Text(item.title)
-                .font(.title3)
+                .scaledFont(.title3)
                 .fontWeight(.medium)
                 .textSelection(.enabled)
 
             if let url = URL(string: item.url) {
                 Link(item.url, destination: url)
-                    .font(.caption)
+                    .scaledFont(.caption)
                     .foregroundStyle(.link)
             }
         }
@@ -74,7 +74,7 @@ struct DetailView: View {
     private func stateBadge(_ item: DashboardItem) -> some View {
         let color: Color = item.state == .open ? .green : .red
         Text(item.stateLabel)
-            .font(.caption)
+            .scaledFont(.caption)
             .fontWeight(.medium)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -94,7 +94,7 @@ struct DetailView: View {
                 metadataRow("Draft", item.isDraft ? "Yes" : "No")
                 HStack(spacing: 6) {
                     Text("Reviews")
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 70, alignment: .trailing)
                     if let badge = item.reviewBadge {
@@ -102,7 +102,7 @@ struct DetailView: View {
                             .foregroundStyle(reviewColor(item))
                     }
                     Text(item.reviewBadgeLabel)
-                        .font(.body)
+                        .scaledFont(.body)
                 }
             }
         }
@@ -112,11 +112,11 @@ struct DetailView: View {
     private func metadataRow(_ label: String, _ value: String) -> some View {
         GridRow {
             Text(label)
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .trailing)
             Text(value)
-                .font(.body)
+                .scaledFont(.body)
                 .textSelection(.enabled)
         }
     }
@@ -125,12 +125,12 @@ struct DetailView: View {
     private func labelsSection(_ item: DashboardItem) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Labels")
-                .font(.caption)
+                .scaledFont(.caption)
                 .foregroundStyle(.secondary)
             FlowLayout(spacing: 4) {
                 ForEach(item.labels, id: \.self) { label in
                     Text(label)
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
@@ -149,22 +149,22 @@ struct DetailView: View {
     private func commentsSection(_ item: DashboardItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Comments (\(item.comments.count))")
-                .font(.headline)
+                .scaledFont(.headline)
 
             ForEach(item.comments) { comment in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(comment.author)
-                            .font(.subheadline)
+                            .scaledFont(.subheadline)
                             .fontWeight(.semibold)
                             .foregroundStyle(.purple)
                         Spacer()
                         Text(comment.createdAt, style: .relative)
-                            .font(.caption2)
+                            .scaledFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                     markdownText(comment.body)
-                        .font(.body)
+                        .scaledFont(.body)
                         .textSelection(.enabled)
                 }
                 .padding(8)

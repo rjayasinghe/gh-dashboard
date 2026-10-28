@@ -4,6 +4,7 @@ import Core
 struct ContentView: View {
     @Bindable var viewModel: DashboardViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(FontScaleSettings.self) private var fontScale
 
     var body: some View {
         ZStack {
@@ -57,5 +58,6 @@ struct ContentView: View {
                 SearchOverlayView(viewModel: viewModel)
             }
         }
+        .environment(\.fontScale, fontScale.scale)
     }
 }

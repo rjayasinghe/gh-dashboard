@@ -1,11 +1,12 @@
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 /// Dispatches `DashboardChange`s as macOS user notifications. Wraps `UNUserNotificationCenter`.
 ///
 /// Authorization is requested lazily on first call to `requestAuthorizationIfNeeded()`. Subsequent
 /// calls are no-ops (the framework caches the user's decision). If the user denies, `notify(_:)`
 /// silently drops banners — there's no in-app fallback by design (notifications are best-effort).
+@MainActor
 public struct LiveNotificationService: NotificationDispatching {
     public init() {}
 
@@ -30,8 +31,6 @@ public struct LiveNotificationService: NotificationDispatching {
         content.sound = .default
         content.userInfo = ["url": item.url, "itemID": item.id]
 
-        // Identifier coalesces duplicate notifications for the same change (e.g., the same comment
-        // re-detected after a transient cache wipe won't double-fire).
         let identifier = "\(item.id)-\(discriminator)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         try? await UNUserNotificationCenter.current().add(request)

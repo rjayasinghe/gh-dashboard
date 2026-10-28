@@ -4,6 +4,10 @@ All notable changes for this project are described in this file. Release tags re
 
 ## [Unreleased]
 
+### Fixed
+
+- **Text size (⌘+/⌘−) rendering broken on macOS 27**: replaced `scaleEffect` (a geometric pixel transform that clips and distorts layout at non-default scales) with `dynamicTypeSize` environment injection, so fonts and layout reflow correctly at every scale step.
+
 ### Added
 
 - **macOS notifications** for dashboard changes: a banner fires when a new PR or issue appears, an existing item is updated, a new comment is posted, or an item's state changes (e.g., PR merged, issue closed). Configurable via an optional `[notifications]` block in `config.toml` with a master `enabled` switch and per-category flags (`new_items`, `updates`, `comments`, `state_changes`); on by default. Authorization is requested once on first launch.

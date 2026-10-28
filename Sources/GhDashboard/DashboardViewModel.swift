@@ -13,6 +13,7 @@ final class DashboardViewModel {
     var configError: String?
     var isSearching = false
     var searchQuery = ""
+    var highlightedSearchIndex: Int? = nil
 
     private var hosts: [String] = []
     private var myDoDIssuesSettings: MyDoDIssuesSettings?
@@ -124,6 +125,7 @@ final class DashboardViewModel {
         selectedItemID = item.id
         isSearching = false
         searchQuery = ""
+        highlightedSearchIndex = nil
     }
 
     func sectionCount(_ sec: DashboardSection) -> Int {

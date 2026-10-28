@@ -32,7 +32,7 @@ struct ItemListView: View {
                         }
                     } header: {
                         Label(group.host, systemImage: "server.rack")
-                            .font(.caption)
+                            .scaledFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }

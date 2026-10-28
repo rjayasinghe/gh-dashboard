@@ -4,7 +4,6 @@ import Core
 struct SearchOverlayView: View {
     @Bindable var viewModel: DashboardViewModel
     @FocusState private var fieldFocused: Bool
-    @State private var highlightedIndex: Int? = nil
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -43,7 +42,7 @@ struct SearchOverlayView: View {
             return .handled
         }
         .onKeyPress(.return) {
-            if let idx = highlightedIndex, idx < viewModel.searchResults.count {
+            if let idx = viewModel.highlightedSearchIndex, idx < viewModel.searchResults.count {
                 viewModel.selectSearchResult(viewModel.searchResults[idx])
             }
             return .handled
@@ -58,16 +57,16 @@ struct SearchOverlayView: View {
 
             TextField("Search items…", text: $viewModel.searchQuery)
                 .textFieldStyle(.plain)
-                .font(.title3)
+                .scaledFont(.title3)
                 .focused($fieldFocused)
                 .onChange(of: viewModel.searchQuery) { _, _ in
-                    highlightedIndex = viewModel.searchResults.isEmpty ? nil : 0
+                    viewModel.highlightedSearchIndex = viewModel.searchResults.isEmpty ? nil : 0
                 }
 
             if !viewModel.searchQuery.isEmpty {
                 Button {
                     viewModel.searchQuery = ""
-                    highlightedIndex = nil
+                    viewModel.highlightedSearchIndex = nil
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
@@ -83,11 +82,11 @@ struct SearchOverlayView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(Array(viewModel.searchResults.enumerated()), id: \.element.id) { idx, item in
-                    SearchResultRow(item: item, isHighlighted: highlightedIndex == idx)
+                    SearchResultRow(item: item, isHighlighted: viewModel.highlightedSearchIndex == idx)
                         .contentShape(Rectangle())
                         .onTapGesture { viewModel.selectSearchResult(item) }
                         .onHover { inside in
-                            if inside { highlightedIndex = idx }
+                            if inside { viewModel.highlightedSearchIndex = idx }
                         }
 
                     if idx < viewModel.searchResults.count - 1 {
@@ -103,14 +102,14 @@ struct SearchOverlayView: View {
     private func dismiss() {
         viewModel.isSearching = false
         viewModel.searchQuery = ""
-        highlightedIndex = nil
+        viewModel.highlightedSearchIndex = nil
     }
 
     private func moveHighlight(by delta: Int) {
         let count = viewModel.searchResults.count
         guard count > 0 else { return }
-        let current = highlightedIndex ?? (delta > 0 ? -1 : count)
-        highlightedIndex = (current + delta + count) % count
+        let current = viewModel.highlightedSearchIndex ?? (delta > 0 ? -1 : count)
+        viewModel.highlightedSearchIndex = (current + delta + count) % count
     }
 }
 
@@ -128,7 +127,7 @@ private struct SearchResultRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("#\(item.number)")
-                        .font(.system(.callout, design: .monospaced))
+                        .scaledFont(.callout, design: .monospaced)
                         .foregroundStyle(.secondary)
 
                     Text(item.title)
@@ -138,11 +137,11 @@ private struct SearchResultRow: View {
 
                 HStack(spacing: 8) {
                     Text(item.repo)
-                        .font(.caption)
+                        .scaledFont(.caption)
                         .foregroundStyle(.secondary)
 
                     Text(item.section.label)
-                        .font(.caption2)
+                        .scaledFont(.caption2)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 3))
