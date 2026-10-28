@@ -2,15 +2,13 @@
 
 All notable changes for this project are described in this file. Release tags refer to the app and automation as shipped in the repository at that commit.
 
-## [Unreleased]
+## [1.3.0] — 2026-10-28
 
 ### Fixed
 
-- **Text size (⌘+/⌘−) rendering broken on macOS 27**: replaced `scaleEffect` (a geometric pixel transform that clips and distorts layout at non-default scales) with `dynamicTypeSize` environment injection, so fonts and layout reflow correctly at every scale step.
-
-### Added
-
-- **macOS notifications** for dashboard changes: a banner fires when a new PR or issue appears, an existing item is updated, a new comment is posted, or an item's state changes (e.g., PR merged, issue closed). Configurable via an optional `[notifications]` block in `config.toml` with a master `enabled` switch and per-category flags (`new_items`, `updates`, `comments`, `state_changes`); on by default. Authorization is requested once on first launch.
+- **Text size (⌘+/⌘−) rendering broken on macOS 27**: replaced `scaleEffect` (which clips and distorts layout at non-default scales) with a custom `fontScale` environment key and `scaledFont()` modifier — only text point sizes change, layout geometry stays fixed.
+- **App crash on launch on macOS 27**: `UNUserNotificationCenter.current()` now called on the main actor, fixing an assertion failure introduced in macOS 27.
+- **Build failure with Command Line Tools on macOS 27**: `@State` on class-type properties requires `SwiftUIMacros`, which CLT no longer ships; replaced with a `StateObject`-backed wrapper and moved transient search state into `DashboardViewModel`.
 
 ## [1.1.0] — 2026-05-28
 
