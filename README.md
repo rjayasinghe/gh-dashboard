@@ -213,12 +213,12 @@ loaded immediately for an instant UI before the first network request completes.
 ## Tests
 
 ```sh
-swift run CoreTests
+swift test
 ```
 
 Covers: GraphQL JSON decoding, review status derivation, comment ordering, TOML
 config loading (including optional **My issues** and **Issue queue** tables), `DashboardItem` properties and badges, snapshot round-trip
-encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservation.
+encoding/decoding, `SnapshotStore` file I/O, merge-by-host cache preservation, change detection, and notification settings.
 
 ## Architecture
 
@@ -232,19 +232,24 @@ encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservatio
 │   ├── GhDashboard/           # SwiftUI app (@main, views, view model)
 │   │   ├── GhDashboardApp.swift
 │   │   ├── DashboardViewModel.swift
+│   │   ├── FontScaleSettings.swift
 │   │   └── Views/
 │   │       ├── ContentView.swift
 │   │       ├── SidebarView.swift
 │   │       ├── ItemListView.swift
 │   │       ├── ItemRow.swift
-│   │       └── DetailView.swift
+│   │       ├── DetailView.swift
+│   │       ├── SearchOverlayView.swift
+│   │       └── FlowLayout.swift
 │   └── Core/                  # Shared library (testable)
-│       ├── Config/            # TOML config loader
-│       ├── Credentials/       # gh hosts.yml token reader
+│       ├── Config/            # TOML config loader + notification settings
+│       ├── Credentials/       # keychain + gh hosts.yml token reader
+│       ├── Foundation/        # JSON coding helpers
 │       ├── GitHub/            # GraphQL client, models, Codable types
-│       └── Persistence/       # SnapshotStore — local cache read/write
+│       ├── Persistence/       # SnapshotStore — local cache read/write
+│       └── Services/          # DashboardServices, ChangeDetector, notifications
 └── Tests/
-    └── CoreTests/             # Custom test runner (no Xcode required)
+    └── CoreTests/
 ```
 
 ## Keyboard shortcuts
@@ -252,8 +257,11 @@ encoding/decoding, `SnapshotStore` file I/O, and merge-by-host cache preservatio
 | Shortcut | Action |
 |---|---|
 | `⌘R` | Refresh all hosts |
-| Click link / Safari icon | Open selected item in browser |
-| Standard macOS selection | Navigate sidebar and list |
+| `⌘F` | Open search overlay |
+| `j` / `k` | Move selection down / up in list |
+| `o` | Open selected item in browser |
+| `⌘=` / `⌘-` | Increase / decrease font size |
+| `⌘0` | Reset font size |
 
 ## Contributing
 
