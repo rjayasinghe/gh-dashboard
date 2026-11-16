@@ -47,7 +47,8 @@ If you authenticated via browser OAuth, these scopes are granted automatically.
 
 ## Configuration
 
-Create the config file at `~/.config/gh-dashboard/config.toml`:
+Create the config file at `~/.config/gh-dashboard/config.toml`
+(a [`config.toml.sample`](config.toml.sample) is included at the repo root):
 
 ```sh
 mkdir -p ~/.config/gh-dashboard

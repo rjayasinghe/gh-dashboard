@@ -1,0 +1,7 @@
+# ~/.config/gh-dashboard/config.toml
+
+[github]
+hosts = [
+  "github.com",
+  # "github.mycompany.com",
+]
